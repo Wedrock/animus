@@ -30,7 +30,10 @@ Modo claro, escuro ou automático (segue o celular): botão 🌙/☀︎ no topo 
 - **Agenda do celular** (alarme garantido, mesmo com o app fechado): em ⚙︎ → "Exportar rotina e
   provas (.ics)", ou pelos botões "Google Agenda" / "Calendário (iPhone)" ao editar uma tarefa.
   - iPhone: abrir o arquivo `.ics` e tocar em "Adicionar tudo".
-  - Android: importar o `.ics` em calendar.google.com (Configurações → Importar e exportar) pelo computador.
+  - Samsung/Android: tocar no `.ics` baixado e abrir com o app Calendário. Alternativa: importar em
+    calendar.google.com (Configurações → Importar e exportar) pelo computador.
+  - Samsung: em Configurações → Bateria → Limites de uso em segundo plano, deixar o Chrome fora dos
+    "apps em suspensão" ajuda as notificações a não atrasarem.
 - No iPhone, notificações de apps web só funcionam com o app adicionado à Tela de Início.
 
 ## Como a prioridade de estudo é calculada
@@ -53,7 +56,11 @@ python3 -m http.server 8000
 ## Publicar (para usar no celular)
 
 Ative o **GitHub Pages** no repositório (Settings → Pages → Deploy from branch → `main` / root).
-Depois abra o link no celular e use "Adicionar à tela inicial".
+Depois abra o link no celular:
+
+- **Samsung/Android**: no Chrome, menu ⋮ → "Instalar app" (ou "Adicionar à tela inicial").
+  No Samsung Internet: menu ☰ → "Adicionar página a" → "Tela inicial".
+- **iPhone**: no Safari, Compartilhar → "Adicionar à Tela de Início".
 
 ## Backup
 

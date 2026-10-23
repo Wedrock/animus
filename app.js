@@ -569,7 +569,7 @@ function taskModal(task, presetDate) {
     ${isNew ? '' : `
       <div class="row-actions" style="margin-top:0">
         <button class="btn small" value="gcal" formnovalidate>📅 Google Agenda</button>
-        <button class="btn small" value="ics" formnovalidate>📅 Calendário (iPhone)</button>
+        <button class="btn small" value="ics" formnovalidate>📅 Calendário do celular</button>
       </div>`}
     ${actionsHtml(!isNew, days.length ? 'Excluir (todas as repetições)' : 'Excluir')}`,
   (action, f) => {
@@ -768,9 +768,13 @@ function settingsModal() {
     <h2>Agenda do celular</h2>
     <p class="subtitle">As notificações do app só tocam se ele estiver aberto ou tiver sido usado há pouco.
       Para ter alarme garantido, coloque a rotina na agenda do celular: ela toca mesmo com o app fechado.</p>
+    ${isIos() ? '' : `<p class="subtitle" style="font-size:.8rem">Dica Samsung: em Configurações → Bateria →
+      Limites de uso em segundo plano, deixe o Chrome fora dos "apps em suspensão" para os avisos não atrasarem.</p>`}
     <button class="btn" value="export-ics" formnovalidate>📅 Exportar rotina e provas (.ics)</button>
-    <p class="subtitle" style="font-size:.8rem">iPhone: abra o arquivo baixado e toque em "Adicionar tudo".
-      Android: no computador, entre em calendar.google.com → Configurações → Importar e exportar, e escolha o arquivo.
+    <p class="subtitle" style="font-size:.8rem">Samsung/Android: toque no arquivo baixado, escolha abrir com o
+      app <strong>Calendário</strong> e confirme a importação. Se não aparecer a opção, importe pelo computador em
+      calendar.google.com → Configurações → Importar e exportar.
+      iPhone: abra o arquivo e toque em "Adicionar tudo".
       Se mudar a rotina depois, exporte de novo (apague os eventos antigos para não duplicar).</p>
 
     <hr style="border:0;border-top:1px solid var(--border);width:100%">
