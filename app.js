@@ -21,15 +21,38 @@ const SUBJECT_COLORS = ['#8b5cf6', '#ec4899', '#0ea5e9', '#16a34a', '#f59e0b', '
 
 const WEEKDAYS_SHORT = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
+const DIREITO_SUBJECTS = [
+  'Introdução ao Estudo do Direito', 'Teoria Geral do Estado', 'Direito Constitucional', 'Direito Civil',
+  'Direito Penal', 'Direito Processual Civil', 'Direito Processual Penal', 'Direito Administrativo',
+  'Direito do Trabalho', 'Direito Empresarial', 'Direito Tributário', 'Direito Internacional',
+  'Direitos Humanos', 'Filosofia do Direito', 'Sociologia Jurídica', 'Ética Profissional',
+];
+
+// Minutos antes do horário da tarefa.
+const REMIND_OPTIONS = [
+  ['', 'Sem lembrete'],
+  ['0', 'Na hora'],
+  ['10', '10 min antes'],
+  ['30', '30 min antes'],
+  ['60', '1 hora antes'],
+  ['1440', '1 dia antes'],
+];
+
+function defaultSettings() {
+  return { studyReminder: '20:00', examReminders: true, notifBannerHidden: false };
+}
+
 function emptyState() {
-  return { tasks: [], subjects: [], topics: [], exams: [] };
+  return { tasks: [], subjects: [], topics: [], exams: [], settings: defaultSettings() };
 }
 
 function load() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return emptyState();
-    return { ...emptyState(), ...JSON.parse(raw) };
+    const data = { ...emptyState(), ...JSON.parse(raw) };
+    data.settings = { ...defaultSettings(), ...data.settings };
+    return data;
   } catch {
     return emptyState();
   }
@@ -222,6 +245,7 @@ function taskHtml(task, date, { showDate = false } = {}) {
           <span class="chip cat">${cat.label}</span>
           ${showDate ? `<span class="chip danger">${fmtDate(date)} · ${relDays(daysBetween(today(), date))}</span>` : ''}
           ${rep ? `<span>↻ ${rep}</span>` : ''}
+          ${task.remind != null ? '<span title="Com lembrete">🔔</span>' : ''}
         </div>
       </div>
     </div>`;
@@ -278,6 +302,7 @@ function viewHoje() {
         <strong>${done} de ${list.length}</strong> tarefas de hoje feitas
         <div class="progress"><div style="width:${pct}%"></div></div>
       </div>` : ''}
+    ${notifBannerHtml()}
     ${catFilterHtml()}
 
     ${late.length ? `
@@ -355,6 +380,12 @@ function viewMaterias() {
         <p style="margin-top:0"><strong>Comece cadastrando as matérias do semestre.</strong></p>
         <p class="subtitle">Dentro de cada matéria, adicione os conteúdos e marque quais estão mais difíceis. O app usa isso, junto com as datas das provas, para sugerir o que estudar primeiro.</p>
         <button class="btn primary" data-action="new-subject">+ Nova matéria</button>
+      </div>
+      <div class="section">
+        <div class="section-title">Sugestões de Direito — toque para adicionar</div>
+        <div class="seg">${DIREITO_SUBJECTS.map((n) => `
+          <button class="chip" style="padding:7px 12px;border:0;cursor:pointer" data-action="quick-subject" data-name="${esc(n)}">+ ${esc(n)}</button>`).join('')}
+        </div>
       </div>`;
   }
   const t = today();
@@ -475,7 +506,7 @@ const actionsHtml = (canDelete, deleteLabel = 'Excluir') => `
 
 function taskModal(task, presetDate) {
   const isNew = !task;
-  task = task || { title: '', cat: ui.catFilter !== 'todas' ? ui.catFilter : 'faculdade', date: presetDate || today(), time: '', repeatDays: [] };
+  task = task || { title: '', cat: ui.catFilter !== 'todas' ? ui.catFilter : 'faculdade', date: presetDate || today(), time: '', repeatDays: [], remind: 10 };
   const days = task.repeatDays || [];
   openModal(`
     <h2>${isNew ? 'Nova tarefa' : 'Editar tarefa'}</h2>
@@ -489,14 +520,33 @@ function taskModal(task, presetDate) {
       <label class="field">${days.length ? 'A partir de' : 'Dia'}<input type="date" name="date" required value="${task.date}"></label>
       <label class="field">Horário (opcional)<input type="time" name="time" value="${esc(task.time)}"></label>
     </div>
+    <label class="field">Lembrete
+      <select name="remind">${REMIND_OPTIONS.map(([v, l]) => `
+        <option value="${v}" ${String(task.remind ?? '') === v ? 'selected' : ''}>${l}</option>`).join('')}
+      </select>
+      <span style="font-weight:400;font-size:.78rem">Sem horário, o lembrete toca às 8h do dia.</span>
+    </label>
     <div class="field" style="display:flex;flex-direction:column;gap:6px;font-size:.85rem;color:var(--muted);font-weight:600">
       Repetir toda semana em (deixe vazio se for só uma vez)
       <div class="seg">${[1, 2, 3, 4, 5, 6, 0].map((d) => `
         <label><input type="checkbox" name="repeat" value="${d}" ${days.includes(d) ? 'checked' : ''}><span>${WEEKDAYS_SHORT[d]}</span></label>`).join('')}
       </div>
     </div>
+    ${isNew ? '' : `
+      <div class="row-actions" style="margin-top:0">
+        <button class="btn small" value="gcal" formnovalidate>📅 Google Agenda</button>
+        <button class="btn small" value="ics" formnovalidate>📅 Calendário (iPhone)</button>
+      </div>`}
     ${actionsHtml(!isNew, days.length ? 'Excluir (todas as repetições)' : 'Excluir')}`,
   (action, f) => {
+    if (action === 'gcal') {
+      window.open(googleCalendarUrl(task), '_blank');
+      return false;
+    }
+    if (action === 'ics') {
+      downloadIcs(icsCalendar(taskEvents(task)), `${slug(task.title)}.ics`);
+      return false;
+    }
     if (action === 'delete') {
       db.tasks = db.tasks.filter((x) => x.id !== task.id);
     } else {
@@ -506,6 +556,7 @@ function taskModal(task, presetDate) {
         date: f.get('date'),
         time: f.get('time') || '',
         repeatDays: f.getAll('repeat').map(Number),
+        remind: f.get('remind') === '' ? null : Number(f.get('remind')),
       };
       if (isNew) db.tasks.push({ id: uid(), doneDates: [], ...patch });
       else Object.assign(task, patch);
@@ -520,7 +571,8 @@ function subjectModal(subject) {
   openModal(`
     <h2>${isNew ? 'Nova matéria' : 'Editar matéria'}</h2>
     <label class="field">Nome
-      <input type="text" name="name" required maxlength="80" value="${esc(subject.name)}" placeholder="Ex.: Anatomia, Cálculo I...">
+      <input type="text" name="name" required maxlength="80" value="${esc(subject.name)}" placeholder="Ex.: Direito Civil III" list="direito-list">
+      <datalist id="direito-list">${DIREITO_SUBJECTS.map((n) => `<option value="${esc(n)}">`).join('')}</datalist>
     </label>
     <div class="field" style="font-size:.85rem;color:var(--muted);font-weight:600">Cor
       <div class="colors" style="margin-top:6px">${SUBJECT_COLORS.map((c) => `
@@ -569,7 +621,7 @@ function topicModal(topic, subjectId) {
     <h2>${isNew ? 'Novo conteúdo' : 'Editar conteúdo'}</h2>
     ${subjectSelect(topic.subjectId)}
     <label class="field">Conteúdo
-      <input type="text" name="title" required maxlength="120" value="${esc(topic.title)}" placeholder="Ex.: Sistema cardiovascular, Derivadas...">
+      <input type="text" name="title" required maxlength="120" value="${esc(topic.title)}" placeholder="Ex.: Controle de constitucionalidade">
     </label>
     <div class="field" style="font-size:.85rem;color:var(--muted);font-weight:600">Quanto precisa estudar?
       <div class="seg" style="margin-top:6px">${[3, 2, 1].map((l) => `
@@ -639,19 +691,67 @@ function addChooser() {
   });
 }
 
+function notifStatus() {
+  if (!('Notification' in window)) {
+    return isIos()
+      ? 'No iPhone, as notificações só funcionam com o app instalado: toque em Compartilhar → "Adicionar à Tela de Início" e abra por lá.'
+      : 'Este navegador não suporta notificações.';
+  }
+  return {
+    granted: '✅ Notificações ativadas neste aparelho.',
+    denied: '🚫 Notificações bloqueadas. Libere nas configurações do navegador para este site.',
+    default: 'Notificações ainda não ativadas.',
+  }[Notification.permission];
+}
+
 function settingsModal() {
+  const st = db.settings;
+  const canAsk = 'Notification' in window && Notification.permission === 'default';
   openModal(`
+    <h2>Lembretes</h2>
+    <p class="subtitle">${notifStatus()}</p>
+    ${canAsk ? '<button class="btn primary" value="notif-on" formnovalidate>🔔 Ativar notificações</button>' : ''}
+    <label class="field">Lembrete diário de estudo
+      <input type="time" name="studyReminder" value="${esc(st.studyReminder)}">
+      <span style="font-weight:400;font-size:.78rem">Deixe vazio para desligar.</span>
+    </label>
+    <label style="display:flex;gap:8px;align-items:center">
+      <input type="checkbox" name="examReminders" ${st.examReminders ? 'checked' : ''}> Avisar 7 dias e 1 dia antes das provas
+    </label>
+    <button class="btn primary" value="save-settings">Salvar lembretes</button>
+
+    <hr style="border:0;border-top:1px solid var(--border);width:100%">
+    <h2>Agenda do celular</h2>
+    <p class="subtitle">As notificações do app só tocam se ele estiver aberto ou tiver sido usado há pouco.
+      Para ter alarme garantido, coloque a rotina na agenda do celular: ela toca mesmo com o app fechado.</p>
+    <button class="btn" value="export-ics" formnovalidate>📅 Exportar rotina e provas (.ics)</button>
+    <p class="subtitle" style="font-size:.8rem">iPhone: abra o arquivo baixado e toque em "Adicionar tudo".
+      Android: no computador, entre em calendar.google.com → Configurações → Importar e exportar, e escolha o arquivo.
+      Se mudar a rotina depois, exporte de novo (apague os eventos antigos para não duplicar).</p>
+
+    <hr style="border:0;border-top:1px solid var(--border);width:100%">
     <h2>Backup</h2>
     <p class="subtitle">Os dados ficam salvos só neste aparelho/navegador. Faça backup de vez em quando — e use o arquivo para passar os dados para outro aparelho.</p>
-    <button class="btn primary" value="export">⬇︎ Baixar backup</button>
+    <button class="btn" value="export" formnovalidate>⬇︎ Baixar backup</button>
     <label class="btn" style="text-align:center">⬆︎ Restaurar backup
       <input type="file" accept="application/json,.json" id="import-file" hidden>
     </label>
-    <hr style="border:0;border-top:1px solid var(--border);width:100%">
     <button class="btn danger" value="wipe" formnovalidate>Apagar todos os dados</button>
     <div class="modal-actions"><button class="btn" value="cancel" formnovalidate>Fechar</button></div>`,
-  (action) => {
-    if (action === 'export') {
+  (action, f) => {
+    if (action === 'notif-on') {
+      enableNotifications().then(settingsModal);
+      return false;
+    }
+    if (action === 'save-settings') {
+      st.studyReminder = f.get('studyReminder') || '';
+      st.examReminders = f.get('examReminders') === 'on';
+      save();
+      toast('Lembretes salvos.');
+    } else if (action === 'export-ics') {
+      downloadIcs(icsCalendar(allEvents()), `minhas-tarefas-${today()}.ics`);
+      return false;
+    } else if (action === 'export') {
       const blob = new Blob([JSON.stringify(db, null, 2)], { type: 'application/json' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
@@ -673,6 +773,7 @@ function settingsModal() {
       if (!Array.isArray(data.tasks) || !Array.isArray(data.subjects)) throw new Error();
       if (!confirm('Substituir os dados atuais pelos do backup?')) return;
       db = { ...emptyState(), ...data };
+      db.settings = { ...defaultSettings(), ...data.settings };
       save();
       modal.close();
       render();
@@ -681,6 +782,251 @@ function settingsModal() {
       toast('Arquivo de backup inválido.');
     }
   });
+}
+
+// ---------- Lembretes ----------
+
+const FIRED_KEY = 'minhas-tarefas:fired';
+const isIos = () => /iphone|ipad|ipod/i.test(navigator.userAgent);
+const notifGranted = () => 'Notification' in window && Notification.permission === 'granted';
+
+function atMs(date, time) {
+  const [h, m] = time.split(':').map(Number);
+  const d = parseIso(date);
+  d.setHours(h, m, 0, 0);
+  return d.getTime();
+}
+
+// Todos os lembretes que caem entre `from` e `to` (timestamps).
+function remindersBetween(from, to) {
+  const out = [];
+  // Um dia a mais em cada ponta cobre lembretes "1 dia antes".
+  const first = iso(new Date(from - 86400000));
+  const last = addDays(iso(new Date(to)), 1);
+
+  for (let date = first; date <= last; date = addDays(date, 1)) {
+    for (const task of db.tasks) {
+      if (task.remind == null || !occursOn(task, date) || isDone(task, date)) continue;
+      const before = task.time ? task.remind : task.remind >= 1440 ? 1440 : 0;
+      out.push({
+        key: `t:${task.id}:${date}`,
+        grace: 60 * 60000,
+        at: atMs(date, task.time || '08:00') - before * 60000,
+        title: task.title,
+        body: [
+          task.time && (task.remind >= 1440 ? `Amanhã às ${task.time}` : `Às ${task.time}`),
+          CATEGORIES[task.cat]?.label,
+        ].filter(Boolean).join(' · '),
+      });
+    }
+    if (db.settings.studyReminder) {
+      const top = rankedTopics().filter((x) => !x.studiedToday).slice(0, 3);
+      if (top.length) {
+        out.push({
+          key: `s:${date}`,
+          grace: 4 * 3600000,
+          at: atMs(date, db.settings.studyReminder),
+          title: 'Hora de estudar 📚',
+          body: 'Prioridades: ' + top.map((x) => x.topic.title).join(', '),
+        });
+      }
+    }
+  }
+
+  if (db.settings.examReminders) {
+    for (const exam of db.exams) {
+      const subj = byId(db.subjects, exam.subjectId);
+      for (const before of [7, 1]) {
+        out.push({
+          key: `e:${exam.id}:${before}`,
+          grace: 14 * 3600000,
+          at: atMs(addDays(exam.date, -before), '09:00'),
+          title: `${exam.title || 'Prova'} de ${subj ? subj.name : ''} ${before === 1 ? 'é amanhã!' : 'em 7 dias'}`,
+          body: 'Veja na aba Estudar o que revisar primeiro.',
+        });
+      }
+    }
+  }
+  return out.filter((r) => r.at >= from && r.at <= to);
+}
+
+function loadFired() {
+  try {
+    return JSON.parse(localStorage.getItem(FIRED_KEY)) || {};
+  } catch {
+    return {};
+  }
+}
+
+async function showNotification(r) {
+  const opts = { body: r.body, tag: r.key, icon: 'icon.svg', badge: 'icon.svg' };
+  try {
+    const reg = await navigator.serviceWorker?.getRegistration();
+    if (reg) return await reg.showNotification(r.title, opts);
+  } catch {}
+  try {
+    new Notification(r.title, opts);
+  } catch {}
+}
+
+// Roda a cada 30s e ao abrir o app: dispara o que já venceu e ainda não foi avisado,
+// desde que não esteja velho demais (cada tipo de lembrete tem sua tolerância).
+function checkReminders() {
+  if (!notifGranted()) return;
+  const now = Date.now();
+  const fired = loadFired();
+  for (const r of remindersBetween(now - 14 * 3600000, now)) {
+    if (fired[r.key] || now - r.at > r.grace) continue;
+    fired[r.key] = now;
+    showNotification(r);
+  }
+  for (const k in fired) if (now - fired[k] > 3 * 86400000) delete fired[k];
+  try {
+    localStorage.setItem(FIRED_KEY, JSON.stringify(fired));
+  } catch {}
+}
+
+async function enableNotifications() {
+  if (!('Notification' in window)) {
+    toast(notifStatus());
+    return;
+  }
+  const res = await Notification.requestPermission();
+  if (res === 'granted') {
+    showNotification({ key: 'teste', title: 'Lembretes ativados 🔔', body: 'Vou avisar das tarefas, das provas e da hora de estudar.' });
+    checkReminders();
+  } else {
+    toast('Sem permissão, não dá pra mostrar notificações.');
+  }
+  render();
+}
+
+function notifBannerHtml() {
+  if (db.settings.notifBannerHidden || notifGranted()) return '';
+  const supported = 'Notification' in window;
+  if (supported && Notification.permission === 'denied') return '';
+  return `
+    <div class="card" style="background:var(--accent-soft);border-color:transparent">
+      <strong>🔔 Quer receber lembretes?</strong>
+      <p class="subtitle" style="margin:4px 0 8px">${supported
+        ? 'Aviso das tarefas, das provas e da hora de estudar.'
+        : esc(notifStatus())}</p>
+      <div class="row-actions" style="margin-top:0">
+        ${supported ? '<button class="btn primary small" data-action="enable-notif">Ativar</button>' : ''}
+        <button class="btn small" data-action="hide-notif-banner">Agora não</button>
+      </div>
+    </div>`;
+}
+
+// ---------- Agenda (.ics e Google Agenda) ----------
+
+const ICS_DAYS = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
+const compact = (date) => date.replace(/-/g, '');
+const icsTime = (date, time) => `${compact(date)}T${time.replace(':', '')}00`;
+const icsText = (s) => String(s).replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n');
+const slug = (s) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/gi, '-').toLowerCase().slice(0, 40) || 'evento';
+
+function addMinutes(time, n) {
+  const [h, m] = time.split(':').map(Number);
+  const t = Math.min(h * 60 + m + n, 23 * 60 + 59);
+  return `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`;
+}
+
+function rrule(task) {
+  const days = task.repeatDays || [];
+  return days.length ? `FREQ=WEEKLY;BYDAY=${days.map((d) => ICS_DAYS[d]).join(',')}` : '';
+}
+
+// A agenda conta o dia inicial como ocorrência, então ele precisa bater com a repetição.
+function firstOccurrence(task) {
+  let date = task.date;
+  while (!occursOn(task, date)) date = addDays(date, 1);
+  return date;
+}
+
+function taskEvents(task) {
+  const ev = { uid: task.id, summary: task.title, description: CATEGORIES[task.cat]?.label || '', rrule: rrule(task), alarms: [] };
+  const date = firstOccurrence(task);
+  if (task.time) {
+    ev.start = icsTime(date, task.time);
+    ev.end = icsTime(date, addMinutes(task.time, 30));
+    if (task.remind != null) ev.alarms.push(`-PT${task.remind}M`);
+  } else {
+    ev.allDay = compact(date);
+    ev.allDayEnd = compact(addDays(date, 1));
+    // Eventos de dia inteiro começam à meia-noite: 8h do dia, ou 8h do dia anterior.
+    if (task.remind != null) ev.alarms.push(task.remind >= 1440 ? '-PT16H' : 'PT8H');
+  }
+  return [ev];
+}
+
+function allEvents() {
+  const t = today();
+  const events = db.tasks.filter((x) => x.date >= t || (x.repeatDays && x.repeatDays.length)).flatMap(taskEvents);
+  for (const exam of db.exams.filter((e) => e.date >= t)) {
+    const subj = byId(db.subjects, exam.subjectId);
+    events.push({
+      uid: exam.id,
+      summary: `📌 ${exam.title || 'Prova'} — ${subj ? subj.name : ''}`,
+      allDay: compact(exam.date),
+      allDayEnd: compact(addDays(exam.date, 1)),
+      alarms: ['-P6DT15H', '-PT15H'], // 9h de 7 dias antes e 9h do dia anterior
+    });
+  }
+  if (db.settings.studyReminder) {
+    events.push({
+      uid: 'estudo-diario',
+      summary: '📚 Hora de estudar',
+      description: 'Abra o Minhas Tarefas para ver o que estudar primeiro.',
+      start: icsTime(t, db.settings.studyReminder),
+      end: icsTime(t, addMinutes(db.settings.studyReminder, 60)),
+      rrule: 'FREQ=DAILY',
+      alarms: ['-PT0M'],
+    });
+  }
+  return events;
+}
+
+// Quebra linhas longas como pede o padrão iCalendar.
+const fold = (line) => line.match(/.{1,60}/gu).join('\r\n ');
+
+function icsCalendar(events) {
+  const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
+  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Minhas Tarefas//PT-BR', 'CALSCALE:GREGORIAN'];
+  for (const ev of events) {
+    lines.push('BEGIN:VEVENT', `UID:${ev.uid}@minhas-tarefas`, `DTSTAMP:${stamp}`, `SUMMARY:${icsText(ev.summary)}`);
+    if (ev.allDay) lines.push(`DTSTART;VALUE=DATE:${ev.allDay}`, `DTEND;VALUE=DATE:${ev.allDayEnd}`);
+    else lines.push(`DTSTART:${ev.start}`, `DTEND:${ev.end}`);
+    if (ev.description) lines.push(`DESCRIPTION:${icsText(ev.description)}`);
+    if (ev.rrule) lines.push(`RRULE:${ev.rrule}`);
+    for (const trigger of ev.alarms || []) {
+      lines.push('BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${icsText(ev.summary)}`, `TRIGGER:${trigger}`, 'END:VALARM');
+    }
+    lines.push('END:VEVENT');
+  }
+  lines.push('END:VCALENDAR');
+  return lines.map(fold).join('\r\n') + '\r\n';
+}
+
+function downloadIcs(text, name) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type: 'text/calendar;charset=utf-8' }));
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+function googleCalendarUrl(task) {
+  const [ev] = taskEvents(task);
+  const params = new URLSearchParams({
+    action: 'TEMPLATE',
+    text: task.title,
+    details: ev.description,
+    dates: ev.allDay ? `${ev.allDay}/${ev.allDayEnd}` : `${ev.start}/${ev.end}`,
+    ctz: Intl.DateTimeFormat().resolvedOptions().timeZone,
+  });
+  if (ev.rrule) params.set('recur', `RRULE:${ev.rrule}`);
+  return `https://calendar.google.com/calendar/render?${params}`;
 }
 
 // ---------- Eventos ----------
@@ -717,6 +1063,13 @@ document.addEventListener('click', (e) => {
     case 'studied': markStudied(byId(db.topics, id)); break;
     case 'study-filter': ui.studySubject = id; break;
     case 'go': ui.tab = el.dataset.tab; window.scrollTo(0, 0); break;
+    case 'quick-subject':
+      db.subjects.push({ id: uid(), name: el.dataset.name, color: SUBJECT_COLORS[db.subjects.length % SUBJECT_COLORS.length] });
+      save();
+      toast(`${el.dataset.name} adicionada`);
+      break;
+    case 'enable-notif': enableNotifications(); return;
+    case 'hide-notif-banner': db.settings.notifBannerHidden = true; save(); break;
     default: return;
   }
   render();
@@ -732,11 +1085,16 @@ document.getElementById('btn-settings').addEventListener('click', settingsModal)
 
 // Atualiza a tela ao virar o dia ou ao voltar para o app.
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden && !modal.open) render();
+  if (document.hidden) return;
+  checkReminders();
+  if (!modal.open) render();
 });
 
-if ('serviceWorker' in navigator && location.protocol !== 'file:') {
-  navigator.serviceWorker.register('sw.js').catch(() => {});
-}
+setInterval(checkReminders, 30000);
 
 render();
+checkReminders();
+
+if (navigator.serviceWorker && location.protocol !== 'file:') {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}

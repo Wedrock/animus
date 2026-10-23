@@ -15,6 +15,19 @@ e funciona offline. Não tem servidor nem login: os dados ficam salvos no própr
 - **Estudar**: fila de conteúdos ordenada por prioridade. Botão "Estudei ✓" registra a revisão.
 
 Tarefas podem se repetir em dias da semana (ex.: aula toda seg/qua), o que monta a rotina fixa.
+A aba Matérias traz sugestões de matérias de Direito para cadastrar com um toque.
+
+## Lembretes
+
+- **Notificações do app**: lembrete por tarefa (na hora, 10/30/60 min ou 1 dia antes),
+  lembrete diário de estudo com os conteúdos prioritários, e aviso 7 dias e 1 dia antes das provas.
+  Como o app não tem servidor, elas só tocam com o app aberto ou usado há pouco. Ao abrir o app,
+  os avisos perdidos recentes são mostrados.
+- **Agenda do celular** (alarme garantido, mesmo com o app fechado): em ⚙︎ → "Exportar rotina e
+  provas (.ics)", ou pelos botões "Google Agenda" / "Calendário (iPhone)" ao editar uma tarefa.
+  - iPhone: abrir o arquivo `.ics` e tocar em "Adicionar tudo".
+  - Android: importar o `.ics` em calendar.google.com (Configurações → Importar e exportar) pelo computador.
+- No iPhone, notificações de apps web só funcionam com o app adicionado à Tela de Início.
 
 ## Como a prioridade de estudo é calculada
 
