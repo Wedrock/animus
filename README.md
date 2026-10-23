@@ -19,7 +19,7 @@ A aba Matérias traz sugestões de matérias de Direito para cadastrar com um to
 
 ## Aparência
 
-Modo claro, escuro ou automático (segue o celular): botão 🌙/☀︎ no topo ou em ⚙︎ → Aparência.
+Modo claro, escuro ou automático (segue o celular): ícone de lua/sol no topo ou em Configurações → Aparência.
 
 ## Lembretes
 
@@ -27,8 +27,8 @@ Modo claro, escuro ou automático (segue o celular): botão 🌙/☀︎ no topo 
   lembrete diário de estudo com os conteúdos prioritários, e aviso 7 dias e 1 dia antes das provas.
   Como o app não tem servidor, elas só tocam com o app aberto ou usado há pouco. Ao abrir o app,
   os avisos perdidos recentes são mostrados.
-- **Agenda do celular** (alarme garantido, mesmo com o app fechado): em ⚙︎ → "Exportar rotina e
-  provas (.ics)", ou pelos botões "Google Agenda" / "Calendário (iPhone)" ao editar uma tarefa.
+- **Agenda do celular** (alarme garantido, mesmo com o app fechado): em Configurações → "Exportar rotina e
+  provas (.ics)", ou pelos botões "Google Agenda" / "Agenda do celular" ao editar uma tarefa.
   - iPhone: abrir o arquivo `.ics` e tocar em "Adicionar tudo".
   - Samsung/Android: tocar no `.ics` baixado e abrir com o app Calendário. Alternativa: importar em
     calendar.google.com (Configurações → Importar e exportar) pelo computador.
@@ -64,4 +64,4 @@ Depois abra o link no celular:
 
 ## Backup
 
-Pelo botão ⚙︎ dá para baixar um backup em `.json` e restaurar em outro aparelho.
+Em Configurações (ícone no canto superior direito) dá para baixar um backup em `.json` e restaurar em outro aparelho.

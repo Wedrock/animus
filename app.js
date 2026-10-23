@@ -17,7 +17,8 @@ const LEVELS = {
   1: 'Tranquilo',
 };
 
-const SUBJECT_COLORS = ['#8b5cf6', '#ec4899', '#0ea5e9', '#16a34a', '#f59e0b', '#ef4444', '#14b8a6', '#6366f1'];
+const SUBJECT_COLORS = ['#a23b48', '#3f72a0', '#5f8a3e', '#b57614', '#7a62a8', '#2f8079', '#8f5e3a', '#6b7078'];
+const OLD_SUBJECT_COLORS = ['#8b5cf6', '#ec4899', '#0ea5e9', '#16a34a', '#f59e0b', '#ef4444', '#14b8a6', '#6366f1'];
 
 const WEEKDAYS_SHORT = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
@@ -52,6 +53,10 @@ function load() {
     if (!raw) return emptyState();
     const data = { ...emptyState(), ...JSON.parse(raw) };
     data.settings = { ...defaultSettings(), ...data.settings };
+    for (const subj of data.subjects) {
+      const i = OLD_SUBJECT_COLORS.indexOf(subj.color);
+      if (i >= 0) subj.color = SUBJECT_COLORS[i];
+    }
     return data;
   } catch {
     return emptyState();
@@ -121,7 +126,7 @@ function greeting() {
   const h = new Date().getHours();
   const hello = h < 5 ? 'Boa noite' : h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite';
   const name = db.settings.name.trim();
-  return name ? `${hello}, ${name} 💜` : hello;
+  return name ? `${hello}, ${name}.` : `${hello}.`;
 }
 
 function relDays(n) {
@@ -227,7 +232,7 @@ function markStudied(topic) {
   topic.lastStudied = today();
   topic.studyCount = (topic.studyCount || 0) + 1;
   save();
-  toast('Boa! Estudo registrado 💜');
+  toast('Estudo registrado.');
 }
 
 function cycleLevel(topic) {
@@ -235,55 +240,109 @@ function cycleLevel(topic) {
   save();
 }
 
+// ---------- Ícones ----------
+
+const ICONS = {
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>',
+  moon: '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>',
+  calendar: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+  calendarPlus: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M12 14v4M10 16h4"/>',
+  book: '<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>',
+  bookmark: '<path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/>',
+  queue: '<path d="M10 6h11M10 12h11M10 18h11M4 6h1v4M4 10h2M6 18H4c0-1 2-2 2-3s-1-1.5-2-1"/>',
+  sliders: '<path d="M21 4h-7M10 4H3M21 12h-9M8 12H3M21 20h-5M12 20H3M14 2v4M8 10v4M16 18v4"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  bell: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
+  repeat: '<path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/>',
+  check: '<path d="M20 6 9 17l-5-5"/>',
+  square: '<rect x="4" y="4" width="16" height="16" rx="3"/>',
+  left: '<path d="m15 18-6-6 6-6"/>',
+  right: '<path d="m9 18 6-6-6-6"/>',
+  down: '<path d="m6 9 6 6 6-6"/>',
+  up: '<path d="m18 15-6-6-6 6"/>',
+  flag: '<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><path d="M4 22v-7"/>',
+  download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>',
+  upload: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>',
+  x: '<path d="M18 6 6 18M6 6l12 12"/>',
+};
+
+const icon = (name, cls = '') => `<svg class="icon ${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name]}</svg>`;
+
 // ---------- Componentes ----------
+
+const section = (title, body, side = '', cls = '') => `
+  <section class="section">
+    <div class="section-head"><h2 class="${cls}">${title}</h2>${side}</div>
+    ${body}
+  </section>`;
+
+const list = (rows) => `<div class="list">${rows.join('')}</div>`;
+
+function filterHtml(opts, active, action) {
+  return `<div class="seg">${opts
+    .map(([k, label]) => `<button type="button" data-action="${action}" data-id="${k}" class="${active === k ? 'on' : ''}">${esc(label)}</button>`)
+    .join('')}</div>`;
+}
+
+const catFilterHtml = () =>
+  filterHtml([['todas', 'Todas'], ...Object.entries(CATEGORIES).map(([k, v]) => [k, v.label])], ui.catFilter, 'cat-filter');
 
 function taskHtml(task, date, { showDate = false } = {}) {
   const cat = CATEGORIES[task.cat] || CATEGORIES.pessoal;
   const done = isDone(task, date);
   const rep = repeatLabel(task);
   return `
-    <div class="card task ${done ? 'done' : ''}" style="--cat:${cat.color}">
+    <div class="row task ${done ? 'done' : ''}">
       <button class="check" data-action="toggle-task" data-id="${task.id}" data-date="${date}"
-        aria-label="${done ? 'Desmarcar' : 'Concluir'}">${done ? '✓' : ''}</button>
-      <div class="task-body" data-action="edit-task" data-id="${task.id}">
-        <div class="task-title">${esc(task.title)}</div>
-        <div class="task-meta">
-          ${task.time ? `<span class="task-time">${esc(task.time)}</span>` : ''}
-          <span class="chip cat">${cat.label}</span>
-          ${showDate ? `<span class="chip danger">${fmtDate(date)} · ${relDays(daysBetween(today(), date))}</span>` : ''}
-          ${rep ? `<span>↻ ${rep}</span>` : ''}
-          ${task.remind != null ? '<span title="Com lembrete">🔔</span>' : ''}
+        aria-label="${done ? 'Desmarcar' : 'Concluir'}">${done ? icon('check') : ''}</button>
+      <div class="row-main" data-action="edit-task" data-id="${task.id}">
+        <div class="row-title">${esc(task.title)}</div>
+        <div class="row-meta">
+          ${task.time ? `<span class="time">${esc(task.time)}</span>` : ''}
+          <span><i class="dot" style="background:${cat.color}"></i>${cat.label}</span>
+          ${showDate ? `<span class="danger">${fmtDate(date)}, ${relDays(daysBetween(today(), date))}</span>` : ''}
+          ${rep ? `<span>${icon('repeat', 'sm')}${rep}</span>` : ''}
+          ${task.remind != null ? `<span title="Com lembrete">${icon('bell', 'sm')}</span>` : ''}
         </div>
       </div>
     </div>`;
 }
 
-function catFilterHtml() {
-  const opts = [['todas', 'Todas'], ...Object.entries(CATEGORIES).map(([k, v]) => [k, v.label])];
-  return `<div class="filters">${opts
-    .map(([k, label]) => `<button data-action="cat-filter" data-cat="${k}" class="${ui.catFilter === k ? 'active' : ''}">${label}</button>`)
-    .join('')}</div>`;
+function examHtml(exam, { showSubject = true } = {}) {
+  const s = byId(db.subjects, exam.subjectId);
+  const until = daysBetween(today(), exam.date);
+  const cls = until < 0 ? '' : until <= 7 ? 'danger' : 'warn';
+  return `
+    <div class="row">
+      ${icon('flag')}
+      <div class="row-main" data-action="edit-exam" data-id="${exam.id}">
+        <div class="row-title">${esc(exam.title || 'Prova')}${showSubject && s ? ` · ${esc(s.name)}` : ''}</div>
+        <div class="row-meta"><span class="${cls}">${fmtDate(exam.date)}, ${relDays(until)}</span></div>
+      </div>
+    </div>`;
 }
+
+const levelHtml = (topic) =>
+  `<button class="tag level level-${topic.level}" data-action="cycle-level" data-id="${topic.id}"
+    title="Toque para mudar a dificuldade">${LEVELS[topic.level]}</button>`;
 
 function rankHtml(item, n) {
   const { topic, reasons, studiedToday } = item;
   const subj = byId(db.subjects, topic.subjectId);
   return `
-    <div class="card rank" style="--subj:${subj.color};${studiedToday ? 'opacity:.55' : ''}">
-      <div class="rank-n">${studiedToday ? '✓' : n}</div>
-      <div class="rank-body">
-        <div class="topic-title" data-action="edit-topic" data-id="${topic.id}"><strong>${esc(topic.title)}</strong></div>
-        <div class="topic-sub">${esc(subj.name)}${topic.studyCount ? ` · estudado ${topic.studyCount}x` : ''}</div>
-        <div class="rank-why">${(studiedToday ? [{ text: 'Estudado hoje', cls: 'ok' }] : reasons)
-          .map((r) => `<span class="chip ${r.cls}">${esc(r.text)}</span>`)
-          .join('')}</div>
-        ${topic.notes ? `<div class="topic-sub" style="margin-top:6px">📝 ${esc(topic.notes)}</div>` : ''}
-        <div class="row-actions">
-          ${studiedToday ? '' : `<button class="btn primary small" data-action="studied" data-id="${topic.id}">Estudei ✓</button>`}
-          <button class="level level-${topic.level}" data-action="cycle-level" data-id="${topic.id}"
-            title="Toque para mudar a dificuldade">${LEVELS[topic.level]}</button>
+    <div class="row rank ${studiedToday ? 'is-done' : ''}">
+      <span class="rank-n">${n}</span>
+      <div class="row-main" data-action="edit-topic" data-id="${topic.id}">
+        <div class="row-title">${esc(topic.title)}</div>
+        <div class="row-meta">
+          ${levelHtml(topic)}
+          <span><i class="dot" style="background:${subj.color}"></i>${esc(subj.name)}</span>
+          ${studiedToday ? '' : reasons.map((r) => `<span class="${r.cls}">${esc(r.text)}</span>`).join('')}
         </div>
       </div>
+      ${studiedToday
+        ? `<span class="done-note">${icon('check', 'sm')}Hoje</span>`
+        : `<button class="btn" data-action="studied" data-id="${topic.id}">Estudei</button>`}
     </div>`;
 }
 
@@ -291,10 +350,9 @@ function rankHtml(item, n) {
 
 function viewHoje() {
   const t = today();
-  const list = tasksOn(t, ui.catFilter);
+  const tasks = tasksOn(t, ui.catFilter);
   const late = overdueTasks(ui.catFilter);
-  const done = list.filter((x) => isDone(x, t)).length;
-  const pct = list.length ? Math.round((done / list.length) * 100) : 0;
+  const done = tasks.filter((x) => isDone(x, t)).length;
 
   const exams = db.exams
     .filter((e) => e.date >= t && daysBetween(t, e.date) <= 14)
@@ -302,50 +360,23 @@ function viewHoje() {
 
   const study = rankedTopics().filter((x) => !x.studiedToday).slice(0, 3);
 
+  let studyBody;
+  if (study.length) studyBody = list(study.map((x, i) => rankHtml(x, i + 1)));
+  else if (db.topics.length) studyBody = '<p class="empty">Tudo estudado hoje.</p>';
+  else studyBody = `<p class="empty">Cadastre os conteúdos em <button class="btn text" data-action="go" data-tab="materias">Matérias</button></p>`;
+
   return `
+    <p class="eyebrow">${fmtLongDate(t)}</p>
     <p class="greeting">${esc(greeting())}</p>
-    <p class="subtitle">${fmtLongDate(t)}</p>
-    ${list.length ? `
-      <div class="card">
-        <strong>${done} de ${list.length}</strong> tarefas de hoje feitas
-        <div class="progress"><div style="width:${pct}%"></div></div>
-      </div>` : ''}
     ${notifBannerHtml()}
     ${catFilterHtml()}
-
-    ${late.length ? `
-      <div class="section">
-        <div class="section-title">Atrasadas</div>
-        ${late.map((x) => taskHtml(x, x.date, { showDate: true })).join('')}
-      </div>` : ''}
-
-    <div class="section">
-      <div class="section-title">Hoje</div>
-      ${list.length ? list.map((x) => taskHtml(x, t)).join('') : `<div class="empty">Nada marcado pra hoje. Toque no + para adicionar.</div>`}
-    </div>
-
-    ${exams.length ? `
-      <div class="section">
-        <div class="section-title">Provas chegando</div>
-        ${exams.map((e) => {
-          const s = byId(db.subjects, e.subjectId);
-          const until = daysBetween(t, e.date);
-          return `<div class="card task" style="--cat:${s ? s.color : 'var(--accent)'}" data-action="edit-exam" data-id="${e.id}">
-            <div class="task-body">
-              <div class="task-title"><strong>${esc(e.title || 'Prova')}</strong> · ${esc(s ? s.name : '')}</div>
-              <div class="task-meta"><span class="chip ${until <= 3 ? 'danger' : 'warn'}">${fmtDate(e.date)} · ${relDays(until)}</span></div>
-            </div></div>`;
-        }).join('')}
-      </div>` : ''}
-
-    <div class="section">
-      <div class="section-title">Pra estudar hoje <button class="link-btn" data-action="go" data-tab="estudar">ver tudo</button></div>
-      ${study.length
-        ? study.map((x, i) => rankHtml(x, i + 1)).join('')
-        : db.topics.length
-          ? `<div class="empty">Tudo estudado hoje. Arrasou! 🎉</div>`
-          : `<div class="empty">Cadastre suas matérias e conteúdos na aba <button class="link-btn" data-action="go" data-tab="materias">Matérias</button> para receber sugestões do que estudar.</div>`}
-    </div>`;
+    ${late.length ? section('Atrasadas', list(late.map((x) => taskHtml(x, x.date, { showDate: true })))) : ''}
+    ${section('Tarefas',
+      tasks.length ? list(tasks.map((x) => taskHtml(x, t))) : '<p class="empty">Nada para hoje.</p>',
+      tasks.length ? `<span class="count">${done} de ${tasks.length}</span>` : '')}
+    ${exams.length ? section('Provas', list(exams.map((e) => examHtml(e)))) : ''}
+    ${section('Para estudar', studyBody,
+      db.topics.length ? '<button class="btn text" data-action="go" data-tab="estudar">Ver fila</button>' : '')}`;
 }
 
 function viewSemana() {
@@ -353,112 +384,105 @@ function viewSemana() {
   const d = parseIso(t);
   const monday = addDays(t, -((d.getDay() + 6) % 7) + ui.weekOffset * 7);
   const days = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
-  const label = ui.weekOffset === 0 ? 'Esta semana' : `${fmtDate(days[0])} – ${fmtDate(days[6])}`;
+  const label = ui.weekOffset === 0 ? 'Esta semana' : `${fmtDate(days[0])} a ${fmtDate(days[6])}`;
 
   return `
     <div class="week-nav">
-      <button data-action="week" data-delta="-1" aria-label="Semana anterior">‹</button>
-      <strong>${label}</strong>
-      <button data-action="week" data-delta="1" aria-label="Próxima semana">›</button>
+      <button class="icon-btn" data-action="week" data-delta="-1" aria-label="Semana anterior">${icon('left')}</button>
+      <span>${label}</span>
+      <button class="icon-btn" data-action="week" data-delta="1" aria-label="Próxima semana">${icon('right')}</button>
     </div>
     ${catFilterHtml()}
     ${days.map((day) => {
-      const list = tasksOn(day, ui.catFilter);
-      const exams = db.exams.filter((e) => e.date === day);
-      return `
-        <div class="day-head ${day === t ? 'today' : ''}">
-          <strong>${fmtDate(day, { weekday: 'long' })}</strong>
-          <span class="subtitle" style="margin:0">${fmtDate(day)}</span>
-          <button class="add-day" data-action="new-task" data-date="${day}">+ adicionar</button>
-        </div>
-        ${exams.map((e) => {
-          const s = byId(db.subjects, e.subjectId);
-          return `<div class="card task" style="--cat:var(--danger)" data-action="edit-exam" data-id="${e.id}">
-            <div class="task-body"><div class="task-title">📌 <strong>${esc(e.title || 'Prova')}</strong> · ${esc(s ? s.name : '')}</div></div></div>`;
-        }).join('')}
-        ${list.length ? list.map((x) => taskHtml(x, day)).join('') : exams.length ? '' : '<div class="empty">Livre</div>'}`;
+      const rows = [
+        ...db.exams.filter((e) => e.date === day).map((e) => examHtml(e)),
+        ...tasksOn(day, ui.catFilter).map((x) => taskHtml(x, day)),
+      ];
+      // Dia livre fica só com o cabeçalho, para a semana caber melhor na tela.
+      return section(
+        `${fmtDate(day, { weekday: 'long' })}, ${fmtDate(day)}`,
+        rows.length ? list(rows) : '',
+        `${rows.length ? '' : '<span class="count">Livre</span>'}
+         <button class="icon-btn" data-action="new-task" data-date="${day}" aria-label="Adicionar tarefa">${icon('plus')}</button>`,
+        day === t ? 'today' : '');
     }).join('')}
-    ${ui.weekOffset !== 0 ? `<div class="row-actions"><button class="btn" data-action="week" data-delta="0">Voltar para esta semana</button></div>` : ''}`;
+    ${ui.weekOffset !== 0 ? '<button class="btn week-back" data-action="week" data-delta="0">Voltar para esta semana</button>' : ''}`;
+}
+
+// Matérias de Direito que ainda não foram cadastradas, para adicionar com um toque.
+function suggestionsHtml() {
+  const taken = new Set(db.subjects.map((s) => s.name.toLowerCase()));
+  const left = DIREITO_SUBJECTS.filter((n) => !taken.has(n.toLowerCase()));
+  if (!left.length) return '';
+  return section('Sugestões', `<div class="tags">${left.map((n) =>
+    `<button class="tag" data-action="quick-subject" data-name="${esc(n)}">${icon('plus', 'sm')}${esc(n)}</button>`).join('')}</div>`);
 }
 
 function viewMaterias() {
   if (!db.subjects.length) {
     return `
-      <div class="card">
-        <p style="margin-top:0"><strong>Comece cadastrando as matérias do semestre.</strong></p>
-        <p class="subtitle">Dentro de cada matéria, adicione os conteúdos e marque quais estão mais difíceis. O app usa isso, junto com as datas das provas, para sugerir o que estudar primeiro.</p>
-        <button class="btn primary" data-action="new-subject">+ Nova matéria</button>
-      </div>
-      <div class="section">
-        <div class="section-title">Sugestões de Direito — toque para adicionar</div>
-        <div class="seg">${DIREITO_SUBJECTS.map((n) => `
-          <button class="chip" style="padding:7px 12px;border:0;cursor:pointer" data-action="quick-subject" data-name="${esc(n)}">+ ${esc(n)}</button>`).join('')}
-        </div>
-      </div>`;
+      <p class="empty-lead">Cadastre as matérias do semestre. Em cada uma, adicione os conteúdos e quanto eles pesam para você.</p>
+      <button class="btn primary" data-action="new-subject">${icon('plus')}Nova matéria</button>
+      ${suggestionsHtml()}`;
   }
   const t = today();
   return db.subjects.map((s) => {
-    const topics = db.topics.filter((x) => x.subjectId === s.id);
+    const topics = db.topics.filter((x) => x.subjectId === s.id)
+      .sort((a, b) => b.level - a.level || a.title.localeCompare(b.title));
     const hard = topics.filter((x) => x.level === 3).length;
     const exams = db.exams.filter((e) => e.subjectId === s.id).sort((a, b) => a.date.localeCompare(b.date));
     const next = nextExam(s.id);
     const open = ui.openSubjects.has(s.id);
-    return `
-      <div class="card subject" style="--subj:${s.color}">
-        <div class="subject-head" data-action="toggle-subject" data-id="${s.id}">
-          <h3>${esc(s.name)}</h3>
-          <span>${open ? '▴' : '▾'}</span>
+    const meta = [
+      `${topics.length} conteúdo${topics.length === 1 ? '' : 's'}`,
+      hard ? `${hard} difíce${hard === 1 ? 'l' : 'is'}` : '',
+      next ? `${esc(next.title || 'Prova')} ${relDays(daysBetween(t, next.date))}` : '',
+    ].filter(Boolean);
+
+    const rows = [`
+      <div class="row subject-head" data-action="toggle-subject" data-id="${s.id}" aria-expanded="${open}">
+        <i class="dot lg" style="background:${s.color}"></i>
+        <div class="row-main">
+          <div class="row-title">${esc(s.name)}</div>
+          <div class="row-meta">${meta.map((m) => `<span>${m}</span>`).join('')}</div>
         </div>
-        <div class="subject-stats">
-          ${topics.length} conteúdo${topics.length === 1 ? '' : 's'}${hard ? ` · ${hard} difíce${hard === 1 ? 'l' : 'is'}` : ''}
-          ${next ? ` · ${esc(next.title || 'Prova')} ${relDays(daysBetween(t, next.date))}` : ''}
-        </div>
-        ${open ? `
-          <div class="subject-body">
-            ${topics.length ? topics
-              .sort((a, b) => b.level - a.level || a.title.localeCompare(b.title))
-              .map((x) => `
-                <div class="topic">
-                  <div class="topic-title" data-action="edit-topic" data-id="${x.id}">
-                    ${esc(x.title)}
-                    <div class="topic-sub">${x.lastStudied ? `Estudado ${relDays(-daysBetween(x.lastStudied, t))}` : 'Nunca estudado'}</div>
-                  </div>
-                  <button class="level level-${x.level}" data-action="cycle-level" data-id="${x.id}" title="Toque para mudar">${LEVELS[x.level]}</button>
-                </div>`).join('')
-              : '<div class="empty">Nenhum conteúdo ainda.</div>'}
-            ${exams.length ? `
-              <div class="section-title" style="margin-top:12px">Provas e trabalhos</div>
-              ${exams.map((e) => `
-                <div class="topic" data-action="edit-exam" data-id="${e.id}" style="cursor:pointer">
-                  <div class="topic-title">${esc(e.title || 'Prova')}</div>
-                  <span class="chip ${e.date < t ? '' : daysBetween(t, e.date) <= 7 ? 'danger' : 'warn'}">${fmtDate(e.date)}</span>
-                </div>`).join('')}` : ''}
-            <div class="row-actions">
-              <button class="btn small primary" data-action="new-topic" data-subject="${s.id}">+ Conteúdo</button>
-              <button class="btn small" data-action="new-exam" data-subject="${s.id}">+ Prova</button>
-              <button class="btn small" data-action="edit-subject" data-id="${s.id}">Editar matéria</button>
-            </div>
-          </div>` : ''}
-      </div>`;
-  }).join('') + `<div class="row-actions"><button class="btn" data-action="new-subject">+ Nova matéria</button></div>`;
+        ${icon(open ? 'up' : 'down')}
+      </div>`];
+
+    if (open) {
+      rows.push(...topics.map((x) => `
+        <div class="row topic">
+          <div class="row-main" data-action="edit-topic" data-id="${x.id}">
+            <div class="row-title">${esc(x.title)}</div>
+            <div class="row-meta"><span>${x.lastStudied ? `Estudado ${relDays(-daysBetween(x.lastStudied, t))}` : 'Nunca estudado'}</span></div>
+          </div>
+          ${levelHtml(x)}
+        </div>`));
+      rows.push(...exams.map((e) => examHtml(e, { showSubject: false }).replace('class="row"', 'class="row topic"')));
+      rows.push(`
+        <div class="row row-actions">
+          <button class="btn text" data-action="new-topic" data-subject="${s.id}">${icon('plus', 'sm')}Conteúdo</button>
+          <button class="btn text" data-action="new-exam" data-subject="${s.id}">${icon('plus', 'sm')}Prova</button>
+          <button class="btn text" data-action="edit-subject" data-id="${s.id}">Editar</button>
+        </div>`);
+    }
+    return list(rows);
+  }).join('') + `<button class="btn week-back" data-action="new-subject">${icon('plus')}Nova matéria</button>${suggestionsHtml()}`;
 }
 
 function viewEstudar() {
   if (!db.topics.length) {
-    return `<div class="card">
-      <p style="margin-top:0"><strong>Ainda não há conteúdos cadastrados.</strong></p>
-      <p class="subtitle">Vá em Matérias, adicione os conteúdos de cada uma e marque a dificuldade. Aqui aparece a fila do que estudar primeiro.</p>
-      <button class="btn primary" data-action="go" data-tab="materias">Ir para Matérias</button>
-    </div>`;
+    return `
+      <p class="empty-lead">Nenhum conteúdo cadastrado ainda.</p>
+      <button class="btn primary" data-action="go" data-tab="materias">Ir para Matérias</button>`;
   }
-  const list = rankedTopics(ui.studySubject);
-  const opts = [['todas', 'Todas'], ...db.subjects.map((s) => [s.id, s.name])];
+  const items = rankedTopics(ui.studySubject);
   return `
-    <p class="subtitle">Ordenado pela dificuldade, tempo sem revisar e provas próximas.</p>
-    <div class="filters">${opts
-      .map(([k, label]) => `<button data-action="study-filter" data-id="${k}" class="${ui.studySubject === k ? 'active' : ''}">${esc(label)}</button>`)
-      .join('')}</div>
-    ${list.length ? list.map((x, i) => rankHtml(x, i + 1)).join('') : '<div class="empty">Nenhum conteúdo nessa matéria.</div>'}`;
+    <p class="eyebrow">Ordem pela dificuldade, tempo sem revisar e provas próximas.</p>
+    <div style="height:12px"></div>
+    ${filterHtml([['todas', 'Todas'], ...db.subjects.map((s) => [s.id, s.name])], ui.studySubject, 'study-filter')}
+    <div style="height:12px"></div>
+    ${items.length ? list(items.map((x, i) => rankHtml(x, i + 1))) : '<p class="empty">Nenhum conteúdo nessa matéria.</p>'}`;
 }
 
 const VIEWS = {
@@ -480,9 +504,9 @@ function applyTheme() {
   if (db.settings.theme === 'auto') delete root.dataset.theme;
   else root.dataset.theme = db.settings.theme;
   const dark = isDark();
-  document.querySelector('meta[name=theme-color]').content = dark ? '#17141b' : '#8b5cf6';
+  document.querySelector('meta[name=theme-color]').content = dark ? '#141312' : '#f7f6f3';
   const btn = document.getElementById('btn-theme');
-  btn.textContent = dark ? '☀︎' : '🌙';
+  btn.innerHTML = icon(dark ? 'sun' : 'moon');
   btn.setAttribute('aria-label', dark ? 'Usar modo claro' : 'Usar modo escuro');
 }
 
@@ -532,10 +556,16 @@ modal.addEventListener('click', (e) => {
 
 const actionsHtml = (canDelete, deleteLabel = 'Excluir') => `
   <div class="modal-actions">
-    ${canDelete ? `<button class="btn danger" value="delete" formnovalidate>${deleteLabel}</button>` : ''}
+    ${canDelete ? `<button class="btn text danger" value="delete" formnovalidate>${deleteLabel}</button>` : ''}
     <span class="spacer"></span>
     <button class="btn" value="cancel" formnovalidate>Cancelar</button>
     <button class="btn primary" value="save">Salvar</button>
+  </div>`;
+
+const radios = (name, opts, checked, cls = '') => `
+  <div class="seg ${cls}">${opts.map(([v, label]) => `
+    <label><input type="${cls === 'days' ? 'checkbox' : 'radio'}" name="${name}" value="${v}"
+      ${(Array.isArray(checked) ? checked.includes(v) : checked === v) ? 'checked' : ''}><span>${label}</span></label>`).join('')}
   </div>`;
 
 function taskModal(task, presetDate) {
@@ -544,34 +574,28 @@ function taskModal(task, presetDate) {
   const days = task.repeatDays || [];
   openModal(`
     <h2>${isNew ? 'Nova tarefa' : 'Editar tarefa'}</h2>
-    <label class="field">O que fazer
-      <input type="text" name="title" required maxlength="140" value="${esc(task.title)}" placeholder="Ex.: Ler capítulo 3, reunião, academia...">
+    <label class="field"><span class="label">O que fazer</span>
+      <input type="text" name="title" required maxlength="140" value="${esc(task.title)}" placeholder="Ler capítulo 3, estágio, academia">
     </label>
-    <div class="seg">${Object.entries(CATEGORIES).map(([k, v]) => `
-      <label><input type="radio" name="cat" value="${k}" ${task.cat === k ? 'checked' : ''}><span>${v.label}</span></label>`).join('')}
-    </div>
+    ${radios('cat', Object.entries(CATEGORIES).map(([k, v]) => [k, `<i class="dot" style="background:${v.color}"></i>${v.label}`]), task.cat)}
     <div class="grid-2">
-      <label class="field">${days.length ? 'A partir de' : 'Dia'}<input type="date" name="date" required value="${task.date}"></label>
-      <label class="field">Horário (opcional)<input type="time" name="time" value="${esc(task.time)}"></label>
+      <label class="field"><span class="label">${days.length ? 'A partir de' : 'Dia'}</span><input type="date" name="date" required value="${task.date}"></label>
+      <label class="field"><span class="label">Horário</span><input type="time" name="time" value="${esc(task.time)}"></label>
     </div>
-    <label class="field">Lembrete
+    <label class="field"><span class="label">Lembrete</span>
       <select name="remind">${REMIND_OPTIONS.map(([v, l]) => `
         <option value="${v}" ${String(task.remind ?? '') === v ? 'selected' : ''}>${l}</option>`).join('')}
       </select>
-      <span style="font-weight:400;font-size:.78rem">Sem horário, o lembrete toca às 8h do dia.</span>
     </label>
-    <div class="field" style="display:flex;flex-direction:column;gap:6px;font-size:.85rem;color:var(--muted);font-weight:600">
-      Repetir toda semana em (deixe vazio se for só uma vez)
-      <div class="seg">${[1, 2, 3, 4, 5, 6, 0].map((d) => `
-        <label><input type="checkbox" name="repeat" value="${d}" ${days.includes(d) ? 'checked' : ''}><span>${WEEKDAYS_SHORT[d]}</span></label>`).join('')}
-      </div>
+    <div class="field"><span class="label">Repetir toda semana</span>
+      ${radios('repeat', [1, 2, 3, 4, 5, 6, 0].map((d) => [d, WEEKDAYS_SHORT[d]]), days, 'days')}
     </div>
     ${isNew ? '' : `
-      <div class="row-actions" style="margin-top:0">
-        <button class="btn small" value="gcal" formnovalidate>📅 Google Agenda</button>
-        <button class="btn small" value="ics" formnovalidate>📅 Calendário do celular</button>
+      <div class="btn-row">
+        <button class="btn" value="gcal" formnovalidate>${icon('calendarPlus', 'sm')}Google Agenda</button>
+        <button class="btn" value="ics" formnovalidate>${icon('calendarPlus', 'sm')}Agenda do celular</button>
       </div>`}
-    ${actionsHtml(!isNew, days.length ? 'Excluir (todas as repetições)' : 'Excluir')}`,
+    ${actionsHtml(!isNew, days.length ? 'Excluir todas' : 'Excluir')}`,
   (action, f) => {
     if (action === 'gcal') {
       window.open(googleCalendarUrl(task), '_blank');
@@ -604,16 +628,16 @@ function subjectModal(subject) {
   subject = subject || { name: '', color: SUBJECT_COLORS[db.subjects.length % SUBJECT_COLORS.length] };
   openModal(`
     <h2>${isNew ? 'Nova matéria' : 'Editar matéria'}</h2>
-    <label class="field">Nome
-      <input type="text" name="name" required maxlength="80" value="${esc(subject.name)}" placeholder="Ex.: Direito Civil III" list="direito-list">
+    <label class="field"><span class="label">Nome</span>
+      <input type="text" name="name" required maxlength="80" value="${esc(subject.name)}" placeholder="Direito Civil III" list="direito-list">
       <datalist id="direito-list">${DIREITO_SUBJECTS.map((n) => `<option value="${esc(n)}">`).join('')}</datalist>
     </label>
-    <div class="field" style="font-size:.85rem;color:var(--muted);font-weight:600">Cor
-      <div class="colors" style="margin-top:6px">${SUBJECT_COLORS.map((c) => `
+    <div class="field"><span class="label">Cor</span>
+      <div class="colors">${SUBJECT_COLORS.map((c) => `
         <label><input type="radio" name="color" value="${c}" ${subject.color === c ? 'checked' : ''}><span style="background:${c}"></span></label>`).join('')}
       </div>
     </div>
-    ${actionsHtml(!isNew, 'Excluir matéria e conteúdos')}`,
+    ${actionsHtml(!isNew, 'Excluir matéria')}`,
   (action, f) => {
     if (action === 'delete') {
       db.subjects = db.subjects.filter((x) => x.id !== subject.id);
@@ -632,7 +656,7 @@ function subjectModal(subject) {
 }
 
 function subjectSelect(selected) {
-  return `<label class="field">Matéria
+  return `<label class="field"><span class="label">Matéria</span>
     <select name="subjectId" required>${db.subjects
       .map((s) => `<option value="${s.id}" ${s.id === selected ? 'selected' : ''}>${esc(s.name)}</option>`)
       .join('')}</select></label>`;
@@ -654,19 +678,16 @@ function topicModal(topic, subjectId) {
   openModal(`
     <h2>${isNew ? 'Novo conteúdo' : 'Editar conteúdo'}</h2>
     ${subjectSelect(topic.subjectId)}
-    <label class="field">Conteúdo
-      <input type="text" name="title" required maxlength="120" value="${esc(topic.title)}" placeholder="Ex.: Controle de constitucionalidade">
+    <label class="field"><span class="label">Conteúdo</span>
+      <input type="text" name="title" required maxlength="120" value="${esc(topic.title)}" placeholder="Controle de constitucionalidade">
     </label>
-    <div class="field" style="font-size:.85rem;color:var(--muted);font-weight:600">Quanto precisa estudar?
-      <div class="seg" style="margin-top:6px">${[3, 2, 1].map((l) => `
-        <label><input type="radio" name="level" value="${l}" ${topic.level === l ? 'checked' : ''}><span>${
-          { 3: 'Muito (difícil)', 2: 'Médio', 1: 'Pouco (já sei)' }[l]}</span></label>`).join('')}
-      </div>
+    <div class="field"><span class="label">Dificuldade</span>
+      ${radios('level', [3, 2, 1].map((l) => [l, LEVELS[l]]), topic.level)}
     </div>
-    <label class="field">Anotações (opcional)
-      <textarea name="notes" maxlength="1000" placeholder="Dúvidas, páginas do livro, links...">${esc(topic.notes)}</textarea>
+    <label class="field"><span class="label">Anotações</span>
+      <textarea name="notes" maxlength="1000" placeholder="Dúvidas, páginas, artigos de lei">${esc(topic.notes)}</textarea>
     </label>
-    ${!isNew && topic.lastStudied ? `<p class="subtitle">Último estudo: ${fmtDate(topic.lastStudied)} · ${topic.studyCount || 0}x no total</p>` : ''}
+    ${!isNew && topic.lastStudied ? `<p class="hint">Último estudo em ${fmtDate(topic.lastStudied)}. ${topic.studyCount || 0}x no total.</p>` : ''}
     ${actionsHtml(!isNew)}`,
   (action, f) => {
     if (action === 'delete') {
@@ -690,13 +711,12 @@ function examModal(exam, subjectId) {
   const isNew = !exam;
   exam = exam || { title: '', subjectId: subjectId || db.subjects[0].id, date: addDays(today(), 7) };
   openModal(`
-    <h2>${isNew ? 'Nova prova / entrega' : 'Editar prova / entrega'}</h2>
+    <h2>${isNew ? 'Nova prova' : 'Editar prova'}</h2>
     ${subjectSelect(exam.subjectId)}
     <div class="grid-2">
-      <label class="field">Nome<input type="text" name="title" maxlength="60" value="${esc(exam.title)}" placeholder="Ex.: P1, Seminário"></label>
-      <label class="field">Data<input type="date" name="date" required value="${exam.date}"></label>
+      <label class="field"><span class="label">Nome</span><input type="text" name="title" maxlength="60" value="${esc(exam.title)}" placeholder="P1, seminário"></label>
+      <label class="field"><span class="label">Data</span><input type="date" name="date" required value="${exam.date}"></label>
     </div>
-    <p class="subtitle">Conforme a data se aproxima, os conteúdos dessa matéria sobem na lista do que estudar.</p>
     ${actionsHtml(!isNew)}`,
   (action, f) => {
     if (action === 'delete') {
@@ -711,13 +731,16 @@ function examModal(exam, subjectId) {
 }
 
 function addChooser() {
+  const opt = (value, ic, label) => `<button class="row row-btn" value="${value}">${icon(ic)}<span>${label}</span></button>`;
   openModal(`
     <h2>Adicionar</h2>
-    <button class="btn" value="task" style="text-align:left">✔︎ Tarefa / compromisso</button>
-    <button class="btn" value="topic" style="text-align:left">📚 Conteúdo para estudar</button>
-    <button class="btn" value="exam" style="text-align:left">📌 Prova ou entrega</button>
-    <button class="btn" value="subject" style="text-align:left">🎓 Matéria</button>
-    <div class="modal-actions"><button class="btn" value="cancel" formnovalidate>Cancelar</button></div>`,
+    <div class="list">
+      ${opt('task', 'square', 'Tarefa')}
+      ${opt('topic', 'bookmark', 'Conteúdo para estudar')}
+      ${opt('exam', 'flag', 'Prova ou entrega')}
+      ${opt('subject', 'book', 'Matéria')}
+    </div>
+    <div class="modal-actions"><span class="spacer"></span><button class="btn" value="cancel" formnovalidate>Cancelar</button></div>`,
   (action) => {
     modal.close();
     ({ task: () => taskModal(), topic: () => topicModal(), exam: () => examModal(), subject: () => subjectModal() })[action]?.();
@@ -728,13 +751,13 @@ function addChooser() {
 function notifStatus() {
   if (!('Notification' in window)) {
     return isIos()
-      ? 'No iPhone, as notificações só funcionam com o app instalado: toque em Compartilhar → "Adicionar à Tela de Início" e abra por lá.'
-      : 'Este navegador não suporta notificações.';
+      ? 'No iPhone, instale o app pela opção Compartilhar, Adicionar à Tela de Início.'
+      : 'Este navegador não mostra notificações.';
   }
   return {
-    granted: '✅ Notificações ativadas neste aparelho.',
-    denied: '🚫 Notificações bloqueadas. Libere nas configurações do navegador para este site.',
-    default: 'Notificações ainda não ativadas.',
+    granted: 'Notificações ativadas.',
+    denied: 'Notificações bloqueadas. Libere nas configurações do site no navegador.',
+    default: 'Notificações desativadas.',
   }[Notification.permission];
 }
 
@@ -743,49 +766,43 @@ function settingsModal() {
   const canAsk = 'Notification' in window && Notification.permission === 'default';
   openModal(`
     <h2>Configurações</h2>
-    <label class="field">Seu nome
+    <label class="field"><span class="label">Nome</span>
       <input type="text" name="name" maxlength="40" value="${esc(st.name)}" placeholder="Como quer ser chamada?">
     </label>
-    <div class="field" style="font-size:.85rem;color:var(--muted);font-weight:600">Aparência
-      <div class="seg" style="margin-top:6px">${THEMES.map(([v, l]) => `
-        <label><input type="radio" name="theme" value="${v}" ${st.theme === v ? 'checked' : ''}><span>${l}</span></label>`).join('')}
-      </div>
-    </div>
+    <div class="field"><span class="label">Aparência</span>${radios('theme', THEMES, st.theme)}</div>
 
-    <h2>Lembretes</h2>
-    <p class="subtitle">${notifStatus()}</p>
-    ${canAsk ? '<button class="btn primary" value="notif-on" formnovalidate>🔔 Ativar notificações</button>' : ''}
-    <label class="field">Lembrete diário de estudo
-      <input type="time" name="studyReminder" value="${esc(st.studyReminder)}">
-      <span style="font-weight:400;font-size:.78rem">Deixe vazio para desligar.</span>
-    </label>
-    <label style="display:flex;gap:8px;align-items:center">
-      <input type="checkbox" name="examReminders" ${st.examReminders ? 'checked' : ''}> Avisar 7 dias e 1 dia antes das provas
-    </label>
+    <h3>Lembretes</h3>
+    <p class="hint">${notifStatus()}</p>
+    ${canAsk ? `<button class="btn" value="notif-on" formnovalidate>${icon('bell', 'sm')}Ativar notificações</button>` : ''}
+    <div class="grid-2">
+      <label class="field"><span class="label">Hora de estudar</span>
+        <input type="time" name="studyReminder" value="${esc(st.studyReminder)}">
+      </label>
+    </div>
+    <label class="check-line"><input type="checkbox" name="examReminders" ${st.examReminders ? 'checked' : ''}>Avisar 7 dias e 1 dia antes das provas</label>
     <button class="btn primary" value="save-settings">Salvar</button>
 
-    <hr style="border:0;border-top:1px solid var(--border);width:100%">
-    <h2>Agenda do celular</h2>
-    <p class="subtitle">As notificações do app só tocam se ele estiver aberto ou tiver sido usado há pouco.
-      Para ter alarme garantido, coloque a rotina na agenda do celular: ela toca mesmo com o app fechado.</p>
-    ${isIos() ? '' : `<p class="subtitle" style="font-size:.8rem">Dica Samsung: em Configurações → Bateria →
-      Limites de uso em segundo plano, deixe o Chrome fora dos "apps em suspensão" para os avisos não atrasarem.</p>`}
-    <button class="btn" value="export-ics" formnovalidate>📅 Exportar rotina e provas (.ics)</button>
-    <p class="subtitle" style="font-size:.8rem">Samsung/Android: toque no arquivo baixado, escolha abrir com o
-      app <strong>Calendário</strong> e confirme a importação. Se não aparecer a opção, importe pelo computador em
-      calendar.google.com → Configurações → Importar e exportar.
-      iPhone: abra o arquivo e toque em "Adicionar tudo".
-      Se mudar a rotina depois, exporte de novo (apague os eventos antigos para não duplicar).</p>
+    <h3>Agenda do celular</h3>
+    <p class="hint">O alarme da agenda toca mesmo com o app fechado.</p>
+    <button class="btn" value="export-ics" formnovalidate>${icon('calendarPlus', 'sm')}Exportar rotina e provas</button>
+    <details class="hint">
+      <summary>Como importar</summary>
+      <p>Samsung: toque no arquivo baixado e abra com o app Calendário. Se não aparecer essa opção, importe em calendar.google.com pelo computador.</p>
+      <p>Mudou a rotina? Exporte de novo e apague os eventos antigos.</p>
+      ${isIos() ? '' : '<p>Se os avisos do app atrasarem: Configurações do celular, Bateria, Limites de uso em segundo plano, e tire o Chrome dos apps em suspensão.</p>'}
+    </details>
 
-    <hr style="border:0;border-top:1px solid var(--border);width:100%">
-    <h2>Backup</h2>
-    <p class="subtitle">Os dados ficam salvos só neste aparelho/navegador. Faça backup de vez em quando — e use o arquivo para passar os dados para outro aparelho.</p>
-    <button class="btn" value="export" formnovalidate>⬇︎ Baixar backup</button>
-    <label class="btn" style="text-align:center">⬆︎ Restaurar backup
-      <input type="file" accept="application/json,.json" id="import-file" hidden>
-    </label>
-    <button class="btn danger" value="wipe" formnovalidate>Apagar todos os dados</button>
-    <div class="modal-actions"><button class="btn" value="cancel" formnovalidate>Fechar</button></div>`,
+    <h3>Backup</h3>
+    <p class="hint">Os dados ficam só neste aparelho.</p>
+    <div class="btn-row">
+      <button class="btn" value="export" formnovalidate>${icon('download', 'sm')}Baixar</button>
+      <label class="btn">${icon('upload', 'sm')}Restaurar<input type="file" accept="application/json,.json" id="import-file" hidden></label>
+    </div>
+    <div class="modal-actions">
+      <button class="btn text danger" value="wipe" formnovalidate>Apagar tudo</button>
+      <span class="spacer"></span>
+      <button class="btn" value="cancel" formnovalidate>Fechar</button>
+    </div>`,
   (action, f) => {
     if (action === 'notif-on') {
       enableNotifications().then(settingsModal);
@@ -830,7 +847,7 @@ function settingsModal() {
       applyTheme();
       modal.close();
       render();
-      toast('Backup restaurado!');
+      toast('Backup restaurado.');
     } catch {
       toast('Arquivo de backup inválido.');
     }
@@ -879,7 +896,7 @@ function remindersBetween(from, to) {
           key: `s:${date}`,
           grace: 4 * 3600000,
           at: atMs(date, db.settings.studyReminder),
-          title: db.settings.name.trim() ? `Hora de estudar, ${db.settings.name.trim()} 📚` : 'Hora de estudar 📚',
+          title: db.settings.name.trim() ? `Hora de estudar, ${db.settings.name.trim()}` : 'Hora de estudar',
           body: 'Prioridades: ' + top.map((x) => x.topic.title).join(', '),
         });
       }
@@ -946,7 +963,7 @@ async function enableNotifications() {
   }
   const res = await Notification.requestPermission();
   if (res === 'granted') {
-    showNotification({ key: 'teste', title: 'Lembretes ativados 🔔', body: 'Vou avisar das tarefas, das provas e da hora de estudar.' });
+    showNotification({ key: 'teste', title: 'Lembretes ativados', body: 'Você vai receber avisos das tarefas, das provas e da hora de estudar.' });
     checkReminders();
   } else {
     toast('Sem permissão, não dá pra mostrar notificações.');
@@ -959,15 +976,14 @@ function notifBannerHtml() {
   const supported = 'Notification' in window;
   if (supported && Notification.permission === 'denied') return '';
   return `
-    <div class="card" style="background:var(--accent-soft);border-color:transparent">
-      <strong>🔔 Quer receber lembretes?</strong>
-      <p class="subtitle" style="margin:4px 0 8px">${supported
-        ? 'Aviso das tarefas, das provas e da hora de estudar.'
-        : esc(notifStatus())}</p>
-      <div class="row-actions" style="margin-top:0">
-        ${supported ? '<button class="btn primary small" data-action="enable-notif">Ativar</button>' : ''}
-        <button class="btn small" data-action="hide-notif-banner">Agora não</button>
+    <div class="notice">
+      ${icon('bell')}
+      <div class="row-main">
+        <div class="row-title">Lembretes</div>
+        ${supported ? '' : `<div class="row-meta">${esc(notifStatus())}</div>`}
       </div>
+      ${supported ? '<button class="btn primary" data-action="enable-notif">Ativar</button>' : ''}
+      <button class="icon-btn" data-action="hide-notif-banner" aria-label="Dispensar">${icon('x')}</button>
     </div>`;
 }
 
@@ -1020,7 +1036,7 @@ function allEvents() {
     const subj = byId(db.subjects, exam.subjectId);
     events.push({
       uid: exam.id,
-      summary: `📌 ${exam.title || 'Prova'} — ${subj ? subj.name : ''}`,
+      summary: `${exam.title || 'Prova'}: ${subj ? subj.name : ''}`,
       allDay: compact(exam.date),
       allDayEnd: compact(addDays(exam.date, 1)),
       alarms: ['-P6DT15H', '-PT15H'], // 9h de 7 dias antes e 9h do dia anterior
@@ -1029,7 +1045,7 @@ function allEvents() {
   if (db.settings.studyReminder) {
     events.push({
       uid: 'estudo-diario',
-      summary: '📚 Hora de estudar',
+      summary: 'Hora de estudar',
       description: 'Abra o Minhas Tarefas para ver o que estudar primeiro.',
       start: icsTime(t, db.settings.studyReminder),
       end: icsTime(t, addMinutes(db.settings.studyReminder, 60)),
@@ -1101,7 +1117,7 @@ document.addEventListener('click', (e) => {
     case 'toggle-task': toggleDone(byId(db.tasks, id), el.dataset.date); break;
     case 'edit-task': return taskModal(byId(db.tasks, id));
     case 'new-task': return taskModal(null, el.dataset.date);
-    case 'cat-filter': ui.catFilter = el.dataset.cat; break;
+    case 'cat-filter': ui.catFilter = id; break;
     case 'week': ui.weekOffset = el.dataset.delta === '0' ? 0 : ui.weekOffset + Number(el.dataset.delta); break;
     case 'toggle-subject':
       ui.openSubjects.has(id) ? ui.openSubjects.delete(id) : ui.openSubjects.add(id);
@@ -1146,6 +1162,9 @@ document.addEventListener('visibilitychange', () => {
 
 setInterval(checkReminders, 30000);
 
+document.querySelectorAll('[data-icon]').forEach((el) => {
+  el.innerHTML = icon(el.dataset.icon);
+});
 applyTheme();
 render();
 checkReminders();

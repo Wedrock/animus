@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#8b5cf6">
+  <meta name="theme-color" content="#f7f6f3">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Tarefas">
   <title>Minhas Tarefas</title>
@@ -23,20 +23,20 @@
   <header class="topbar">
     <h1 id="title">Hoje</h1>
     <div class="topbar-actions">
-      <button class="icon-btn" id="btn-theme" aria-label="Alternar modo escuro">🌙</button>
-      <button class="icon-btn" id="btn-settings" aria-label="Configurações">⚙︎</button>
+      <button class="icon-btn" id="btn-theme" aria-label="Alternar modo escuro"></button>
+      <button class="icon-btn" id="btn-settings" aria-label="Configurações" data-icon="sliders"></button>
     </div>
   </header>
 
   <main id="view"></main>
 
-  <button class="fab" id="fab" aria-label="Adicionar">+</button>
+  <button class="fab" id="fab" aria-label="Adicionar" data-icon="plus"></button>
 
   <nav class="tabs">
-    <button data-tab="hoje" class="active"><span>☀︎</span>Hoje</button>
-    <button data-tab="semana"><span>▦</span>Semana</button>
-    <button data-tab="materias"><span>✎</span>Matérias</button>
-    <button data-tab="estudar"><span>★</span>Estudar</button>
+    <button data-tab="hoje" class="active"><span data-icon="sun"></span>Hoje</button>
+    <button data-tab="semana"><span data-icon="calendar"></span>Semana</button>
+    <button data-tab="materias"><span data-icon="book"></span>Matérias</button>
+    <button data-tab="estudar"><span data-icon="queue"></span>Estudar</button>
   </nav>
 
   <dialog id="modal">
