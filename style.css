@@ -76,6 +76,8 @@ main { max-width: 640px; margin: 0 auto; padding: 0 16px 24px; }
 
 .empty { color: var(--muted); font-size: .92rem; padding: 6px 2px; }
 
+.greeting { font-size: 1.15rem; font-weight: 600; margin: 2px 0 4px; }
+
 .subtitle { color: var(--muted); margin: -4px 0 4px; font-size: .95rem; }
 
 /* Tarefas */

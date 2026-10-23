@@ -39,7 +39,7 @@ const REMIND_OPTIONS = [
 ];
 
 function defaultSettings() {
-  return { studyReminder: '20:00', examReminders: true, notifBannerHidden: false };
+  return { name: 'Maria Eduarda', studyReminder: '20:00', examReminders: true, notifBannerHidden: false };
 }
 
 function emptyState() {
@@ -115,6 +115,13 @@ function fmtDate(s, opts = { day: '2-digit', month: '2-digit' }) {
 function fmtLongDate(s) {
   const txt = fmtDate(s, { weekday: 'long', day: 'numeric', month: 'long' });
   return txt.charAt(0).toUpperCase() + txt.slice(1);
+}
+
+function greeting() {
+  const h = new Date().getHours();
+  const hello = h < 5 ? 'Boa noite' : h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite';
+  const name = db.settings.name.trim();
+  return name ? `${hello}, ${name} 💜` : hello;
 }
 
 function relDays(n) {
@@ -296,6 +303,7 @@ function viewHoje() {
   const study = rankedTopics().filter((x) => !x.studiedToday).slice(0, 3);
 
   return `
+    <p class="greeting">${esc(greeting())}</p>
     <p class="subtitle">${fmtLongDate(t)}</p>
     ${list.length ? `
       <div class="card">
@@ -708,6 +716,10 @@ function settingsModal() {
   const st = db.settings;
   const canAsk = 'Notification' in window && Notification.permission === 'default';
   openModal(`
+    <label class="field">Seu nome
+      <input type="text" name="name" maxlength="40" value="${esc(st.name)}" placeholder="Como quer ser chamada?">
+    </label>
+
     <h2>Lembretes</h2>
     <p class="subtitle">${notifStatus()}</p>
     ${canAsk ? '<button class="btn primary" value="notif-on" formnovalidate>🔔 Ativar notificações</button>' : ''}
@@ -718,7 +730,7 @@ function settingsModal() {
     <label style="display:flex;gap:8px;align-items:center">
       <input type="checkbox" name="examReminders" ${st.examReminders ? 'checked' : ''}> Avisar 7 dias e 1 dia antes das provas
     </label>
-    <button class="btn primary" value="save-settings">Salvar lembretes</button>
+    <button class="btn primary" value="save-settings">Salvar</button>
 
     <hr style="border:0;border-top:1px solid var(--border);width:100%">
     <h2>Agenda do celular</h2>
@@ -744,10 +756,11 @@ function settingsModal() {
       return false;
     }
     if (action === 'save-settings') {
+      st.name = f.get('name').trim();
       st.studyReminder = f.get('studyReminder') || '';
       st.examReminders = f.get('examReminders') === 'on';
       save();
-      toast('Lembretes salvos.');
+      toast('Configurações salvas.');
     } else if (action === 'export-ics') {
       downloadIcs(icsCalendar(allEvents()), `minhas-tarefas-${today()}.ics`);
       return false;
@@ -826,7 +839,7 @@ function remindersBetween(from, to) {
           key: `s:${date}`,
           grace: 4 * 3600000,
           at: atMs(date, db.settings.studyReminder),
-          title: 'Hora de estudar 📚',
+          title: db.settings.name.trim() ? `Hora de estudar, ${db.settings.name.trim()} 📚` : 'Hora de estudar 📚',
           body: 'Prioridades: ' + top.map((x) => x.topic.title).join(', '),
         });
       }
