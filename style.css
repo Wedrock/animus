@@ -157,6 +157,9 @@ main { max-width: 640px; margin: 0 auto; padding: 0 16px 24px; }
 .subject-head { cursor: pointer; }
 .subject-head .row-title { font-weight: 600; }
 .topic { padding-left: 36px; }
+.suggestions .row-main { cursor: default; }
+details.more { margin-top: 20px; }
+details.more summary { cursor: pointer; color: var(--accent); font-weight: 500; font-size: .92rem; margin-bottom: 10px; }
 .row.row-actions { min-height: 0; padding: 4px 8px 4px 28px; gap: 0; flex-wrap: wrap; }
 
 /* Aviso de lembretes */

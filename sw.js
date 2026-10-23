@@ -1,4 +1,4 @@
-const CACHE = 'minhas-tarefas-v6';
+const CACHE = 'minhas-tarefas-v7';
 const FILES = ['./', 'index.html', 'style.css', 'app.js', 'manifest.json', 'icon.svg'];
 
 self.addEventListener('install', (e) => {

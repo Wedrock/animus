@@ -29,6 +29,52 @@ const DIREITO_SUBJECTS = [
   'Direitos Humanos', 'Filosofia do Direito', 'Sociologia Jurídica', 'Ética Profissional',
 ];
 
+// Matérias do semestre atual, cadastradas automaticamente uma vez.
+const SEMESTER = {
+  id: '2026.2',
+  subjects: [
+    'Direito Civil I – Parte Geral',
+    'Direito Constitucional II',
+    'Direito Empresarial I',
+    'Direito Penal I',
+    'Hermenêutica Jurídica e Teoria da Argumentação',
+    'Teoria Geral do Processo',
+  ],
+};
+
+// Conteúdos que costumam aparecer em cada matéria. Só aparecem como sugestão:
+// a ementa de cada faculdade muda, então ela escolhe quais adicionar.
+const TOPIC_SUGGESTIONS = {
+  'direito civil i – parte geral': [
+    'LINDB', 'Pessoa natural', 'Personalidade e capacidade', 'Direitos da personalidade', 'Ausência',
+    'Pessoa jurídica', 'Domicílio', 'Bens', 'Fato, ato e negócio jurídico', 'Defeitos do negócio jurídico',
+    'Invalidade do negócio jurídico', 'Prescrição e decadência',
+  ],
+  'direito constitucional ii': [
+    'Organização do Estado', 'Repartição de competências', 'Intervenção federal e estadual', 'Poder Legislativo',
+    'Processo legislativo', 'Poder Executivo', 'Poder Judiciário', 'Funções essenciais à Justiça',
+    'Controle de constitucionalidade',
+  ],
+  'direito empresarial i': [
+    'Teoria da empresa', 'Empresário individual e registro', 'Estabelecimento empresarial', 'Nome empresarial',
+    'Escrituração e livros empresariais', 'Propriedade industrial', 'Teoria geral das sociedades', 'Sociedade limitada',
+  ],
+  'direito penal i': [
+    'Princípios do Direito Penal', 'Lei penal no tempo e no espaço', 'Teoria do crime', 'Fato típico',
+    'Ilicitude e excludentes', 'Culpabilidade', 'Tentativa e consumação', 'Erro de tipo e erro de proibição',
+    'Concurso de pessoas',
+  ],
+  'hermenêutica jurídica e teoria da argumentação': [
+    'Métodos de interpretação', 'Lacunas e integração', 'Antinomias', 'Regras e princípios',
+    'Ponderação e proporcionalidade', 'Tópica jurídica', 'Nova retórica (Perelman)', 'Argumentação jurídica (Alexy)',
+    'Precedentes',
+  ],
+  'teoria geral do processo': [
+    'Princípios processuais', 'Jurisdição', 'Ação', 'Processo e relação processual', 'Competência',
+    'Sujeitos do processo', 'Atos processuais', 'Meios adequados de solução de conflitos',
+  ],
+};
+
 // Minutos antes do horário da tarefa.
 const REMIND_OPTIONS = [
   ['', 'Sem lembrete'],
@@ -78,6 +124,7 @@ const ui = {
   catFilter: 'todas',
   weekOffset: 0,
   openSubjects: new Set(),
+  openSuggestions: new Set(),
   studySubject: 'todas',
 };
 
@@ -414,8 +461,27 @@ function suggestionsHtml() {
   const taken = new Set(db.subjects.map((s) => s.name.toLowerCase()));
   const left = DIREITO_SUBJECTS.filter((n) => !taken.has(n.toLowerCase()));
   if (!left.length) return '';
-  return section('Sugestões', `<div class="tags">${left.map((n) =>
-    `<button class="tag" data-action="quick-subject" data-name="${esc(n)}">${icon('plus', 'sm')}${esc(n)}</button>`).join('')}</div>`);
+  const tags = `<div class="tags">${left.map((n) =>
+    `<button class="tag" data-action="quick-subject" data-name="${esc(n)}">${icon('plus', 'sm')}${esc(n)}</button>`).join('')}</div>`;
+  if (!db.subjects.length) return section('Sugestões', tags);
+  return `<details class="more"><summary>Outras matérias de Direito</summary>${tags}</details>`;
+}
+
+function topicSuggestions(subject) {
+  const taken = new Set(db.topics.filter((x) => x.subjectId === subject.id).map((x) => x.title.toLowerCase()));
+  return (TOPIC_SUGGESTIONS[subject.name.toLowerCase()] || []).filter((n) => !taken.has(n.toLowerCase()));
+}
+
+// Cadastra uma vez as matérias do semestre que ainda não existirem.
+function seedSemester() {
+  if (db.settings.seededSemester === SEMESTER.id) return;
+  const taken = new Set(db.subjects.map((s) => s.name.toLowerCase()));
+  for (const name of SEMESTER.subjects) {
+    if (taken.has(name.toLowerCase())) continue;
+    db.subjects.push({ id: uid(), name, color: SUBJECT_COLORS[db.subjects.length % SUBJECT_COLORS.length] });
+  }
+  db.settings.seededSemester = SEMESTER.id;
+  save();
 }
 
 function viewMaterias() {
@@ -459,10 +525,22 @@ function viewMaterias() {
           ${levelHtml(x)}
         </div>`));
       rows.push(...exams.map((e) => examHtml(e, { showSubject: false }).replace('class="row"', 'class="row topic"')));
+      const suggested = topicSuggestions(s);
+      if (suggested.length && ui.openSuggestions.has(s.id)) {
+        rows.push(`
+          <div class="row topic suggestions">
+            <div class="row-main">
+              <div class="row-meta" style="margin:0 0 8px">Toque para adicionar. Confira com a ementa da faculdade.</div>
+              <div class="tags">${suggested.map((n) =>
+                `<button class="tag" data-action="quick-topic" data-subject="${s.id}" data-name="${esc(n)}">${icon('plus', 'sm')}${esc(n)}</button>`).join('')}</div>
+            </div>
+          </div>`);
+      }
       rows.push(`
         <div class="row row-actions">
           <button class="btn text" data-action="new-topic" data-subject="${s.id}">${icon('plus', 'sm')}Conteúdo</button>
           <button class="btn text" data-action="new-exam" data-subject="${s.id}">${icon('plus', 'sm')}Prova</button>
+          ${suggested.length ? `<button class="btn text" data-action="toggle-suggestions" data-id="${s.id}">${ui.openSuggestions.has(s.id) ? 'Fechar sugestões' : 'Sugestões'}</button>` : ''}
           <button class="btn text" data-action="edit-subject" data-id="${s.id}">Editar</button>
         </div>`);
     }
@@ -1132,6 +1210,13 @@ document.addEventListener('click', (e) => {
     case 'studied': markStudied(byId(db.topics, id)); break;
     case 'study-filter': ui.studySubject = id; break;
     case 'go': ui.tab = el.dataset.tab; window.scrollTo(0, 0); break;
+    case 'toggle-suggestions':
+      ui.openSuggestions.has(id) ? ui.openSuggestions.delete(id) : ui.openSuggestions.add(id);
+      break;
+    case 'quick-topic':
+      db.topics.push({ id: uid(), subjectId: el.dataset.subject, title: el.dataset.name, level: 2, notes: '', lastStudied: null, studyCount: 0 });
+      save();
+      break;
     case 'quick-subject':
       db.subjects.push({ id: uid(), name: el.dataset.name, color: SUBJECT_COLORS[db.subjects.length % SUBJECT_COLORS.length] });
       save();
@@ -1165,6 +1250,7 @@ setInterval(checkReminders, 30000);
 document.querySelectorAll('[data-icon]').forEach((el) => {
   el.innerHTML = icon(el.dataset.icon);
 });
+seedSemester();
 applyTheme();
 render();
 checkReminders();

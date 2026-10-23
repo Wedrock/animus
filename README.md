@@ -15,7 +15,9 @@ e funciona offline. Não tem servidor nem login: os dados ficam salvos no própr
 - **Estudar**: fila de conteúdos ordenada por prioridade. Botão "Estudei ✓" registra a revisão.
 
 Tarefas podem se repetir em dias da semana (ex.: aula toda seg/qua), o que monta a rotina fixa.
-A aba Matérias traz sugestões de matérias de Direito para cadastrar com um toque.
+As matérias do semestre (2026.2) são cadastradas automaticamente na primeira vez que o app abre
+(sem duplicar as que já existirem). Cada uma tem sugestões de conteúdos para adicionar com um toque.
+Para um novo semestre, atualize a lista `SEMESTER` em `app.js`.
 
 ## Aparência
 
