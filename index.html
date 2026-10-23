@@ -11,11 +11,21 @@
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icon.svg">
   <link rel="stylesheet" href="style.css">
+  <script>
+    // Aplica o tema escolhido antes de desenhar a página, para não piscar.
+    try {
+      var theme = (JSON.parse(localStorage.getItem('minhas-tarefas:v1')) || {}).settings || {};
+      if (theme.theme === 'light' || theme.theme === 'dark') document.documentElement.dataset.theme = theme.theme;
+    } catch (e) {}
+  </script>
 </head>
 <body>
   <header class="topbar">
     <h1 id="title">Hoje</h1>
-    <button class="icon-btn" id="btn-settings" aria-label="Backup e configurações">⚙︎</button>
+    <div class="topbar-actions">
+      <button class="icon-btn" id="btn-theme" aria-label="Alternar modo escuro">🌙</button>
+      <button class="icon-btn" id="btn-settings" aria-label="Configurações">⚙︎</button>
+    </div>
   </header>
 
   <main id="view"></main>

@@ -39,7 +39,7 @@ const REMIND_OPTIONS = [
 ];
 
 function defaultSettings() {
-  return { name: 'Maria Eduarda', studyReminder: '20:00', examReminders: true, notifBannerHidden: false };
+  return { name: 'Maria Eduarda', theme: 'auto', studyReminder: '20:00', examReminders: true, notifBannerHidden: false };
 }
 
 function emptyState() {
@@ -468,6 +468,32 @@ const VIEWS = {
   estudar: { title: 'O que estudar', render: viewEstudar },
 };
 
+// ---------- Tema ----------
+
+const THEMES = [['auto', 'Automático'], ['light', 'Claro'], ['dark', 'Escuro']];
+const darkQuery = window.matchMedia('(prefers-color-scheme: dark)');
+
+const isDark = () => db.settings.theme === 'dark' || (db.settings.theme !== 'light' && darkQuery.matches);
+
+function applyTheme() {
+  const root = document.documentElement;
+  if (db.settings.theme === 'auto') delete root.dataset.theme;
+  else root.dataset.theme = db.settings.theme;
+  const dark = isDark();
+  document.querySelector('meta[name=theme-color]').content = dark ? '#17141b' : '#8b5cf6';
+  const btn = document.getElementById('btn-theme');
+  btn.textContent = dark ? '☀︎' : '🌙';
+  btn.setAttribute('aria-label', dark ? 'Usar modo claro' : 'Usar modo escuro');
+}
+
+function setTheme(theme) {
+  db.settings.theme = theme;
+  save();
+  applyTheme();
+}
+
+darkQuery.addEventListener('change', applyTheme);
+
 function render() {
   const v = VIEWS[ui.tab];
   document.getElementById('title').textContent = v.title;
@@ -716,9 +742,15 @@ function settingsModal() {
   const st = db.settings;
   const canAsk = 'Notification' in window && Notification.permission === 'default';
   openModal(`
+    <h2>Configurações</h2>
     <label class="field">Seu nome
       <input type="text" name="name" maxlength="40" value="${esc(st.name)}" placeholder="Como quer ser chamada?">
     </label>
+    <div class="field" style="font-size:.85rem;color:var(--muted);font-weight:600">Aparência
+      <div class="seg" style="margin-top:6px">${THEMES.map(([v, l]) => `
+        <label><input type="radio" name="theme" value="${v}" ${st.theme === v ? 'checked' : ''}><span>${l}</span></label>`).join('')}
+      </div>
+    </div>
 
     <h2>Lembretes</h2>
     <p class="subtitle">${notifStatus()}</p>
@@ -775,9 +807,12 @@ function settingsModal() {
       if (!confirm('Isso apaga tarefas, matérias e conteúdos deste aparelho. Continuar?')) return false;
       db = emptyState();
       save();
+      applyTheme();
       toast('Dados apagados.');
     }
   });
+  // O tema muda na hora, sem precisar salvar.
+  modalForm.querySelectorAll('[name=theme]').forEach((r) => r.addEventListener('change', () => setTheme(r.value)));
   document.getElementById('import-file').addEventListener('change', async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -788,6 +823,7 @@ function settingsModal() {
       db = { ...emptyState(), ...data };
       db.settings = { ...defaultSettings(), ...data.settings };
       save();
+      applyTheme();
       modal.close();
       render();
       toast('Backup restaurado!');
@@ -1095,6 +1131,7 @@ document.getElementById('fab').addEventListener('click', () => {
 });
 
 document.getElementById('btn-settings').addEventListener('click', settingsModal);
+document.getElementById('btn-theme').addEventListener('click', () => setTheme(isDark() ? 'light' : 'dark'));
 
 // Atualiza a tela ao virar o dia ou ao voltar para o app.
 document.addEventListener('visibilitychange', () => {
@@ -1105,6 +1142,7 @@ document.addEventListener('visibilitychange', () => {
 
 setInterval(checkReminders, 30000);
 
+applyTheme();
 render();
 checkReminders();
 

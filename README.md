@@ -17,6 +17,10 @@ e funciona offline. Não tem servidor nem login: os dados ficam salvos no própr
 Tarefas podem se repetir em dias da semana (ex.: aula toda seg/qua), o que monta a rotina fixa.
 A aba Matérias traz sugestões de matérias de Direito para cadastrar com um toque.
 
+## Aparência
+
+Modo claro, escuro ou automático (segue o celular): botão 🌙/☀︎ no topo ou em ⚙︎ → Aparência.
+
 ## Lembretes
 
 - **Notificações do app**: lembrete por tarefa (na hora, 10/30/60 min ou 1 dia antes),
