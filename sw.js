@@ -1,4 +1,4 @@
-const CACHE = 'animus-v13';
+const CACHE = 'animus-v15';
 const FILES = ['./', 'index.html', 'style.css', 'app.js', 'sync.js', 'firebase-config.js', 'manifest.json', 'icon.svg'];
 
 self.addEventListener('install', (e) => {
@@ -14,12 +14,13 @@ self.addEventListener('activate', (e) => {
 });
 
 // Rede primeiro (para pegar atualizações), cache se estiver offline.
-// Só cuida dos arquivos do app e das bibliotecas do Firebase; a conexão com o
-// banco de dados (firestore.googleapis.com) passa direto.
+// Só cuida dos arquivos do app, das fontes e das bibliotecas do Firebase; a conexão
+// com o banco de dados (firestore.googleapis.com) passa direto.
+const CACHED_HOSTS = ['www.gstatic.com', 'fonts.googleapis.com', 'fonts.gstatic.com'];
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
   const { origin, host } = new URL(e.request.url);
-  if (origin !== self.location.origin && host !== 'www.gstatic.com') return;
+  if (origin !== self.location.origin && !CACHED_HOSTS.includes(host)) return;
   e.respondWith(
     // no-cache: sempre confere com o servidor se há versão nova (o GitHub Pages
     // guarda os arquivos por 10 minutos); sem internet, usa a cópia salva.

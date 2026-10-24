@@ -18,8 +18,12 @@ const LEVELS = {
   1: 'Tranquilo',
 };
 
-const SUBJECT_COLORS = ['#a23b48', '#3f72a0', '#5f8a3e', '#b57614', '#7a62a8', '#2f8079', '#8f5e3a', '#6b7078'];
-const OLD_SUBJECT_COLORS = ['#8b5cf6', '#ec4899', '#0ea5e9', '#16a34a', '#f59e0b', '#ef4444', '#14b8a6', '#6366f1'];
+const SUBJECT_COLORS = ['#7a3e9d', '#5a6b8c', '#6f7a45', '#b7791f', '#a0456b', '#2f7a78', '#8a5a3c', '#6b6f7a'];
+// Paletas de versões anteriores, convertidas para a atual pela posição.
+const OLD_PALETTES = [
+  ['#8b5cf6', '#ec4899', '#0ea5e9', '#16a34a', '#f59e0b', '#ef4444', '#14b8a6', '#6366f1'],
+  ['#a23b48', '#3f72a0', '#5f8a3e', '#b57614', '#7a62a8', '#2f8079', '#8f5e3a', '#6b7078'],
+];
 
 const WEEKDAYS_SHORT = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
@@ -99,8 +103,10 @@ function normalize(raw) {
   const data = { ...emptyState(), ...raw };
   data.settings = { ...defaultSettings(), ...raw.settings };
   for (const subj of data.subjects) {
-    const i = OLD_SUBJECT_COLORS.indexOf(subj.color);
-    if (i >= 0) subj.color = SUBJECT_COLORS[i];
+    for (const palette of OLD_PALETTES) {
+      const i = palette.indexOf(subj.color);
+      if (i >= 0) subj.color = SUBJECT_COLORS[i];
+    }
   }
   return data;
 }
@@ -146,6 +152,7 @@ const ui = {
   openSubjects: new Set(),
   openSuggestions: new Set(),
   studySubject: 'todas',
+  selectedDate: null, // dia mostrado na tela Hoje (null = hoje)
 };
 
 // ---------- Utilidades ----------
@@ -193,7 +200,7 @@ function greeting() {
   const h = new Date().getHours();
   const hello = h < 5 ? 'Boa noite' : h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite';
   const name = db.settings.name.trim();
-  return name ? `${hello}, ${name}.` : `${hello}.`;
+  return name ? `${hello}, ${name}` : hello;
 }
 
 function relDays(n) {
@@ -331,6 +338,7 @@ const ICONS = {
   download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>',
   upload: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>',
   x: '<path d="M18 6 6 18M6 6l12 12"/>',
+  arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
 };
 
 const icon = (name, cls = '') => `<svg class="icon ${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name]}</svg>`;
@@ -354,26 +362,100 @@ function filterHtml(opts, active, action) {
 const catFilterHtml = () =>
   filterHtml([['todas', 'Todas'], ...Object.entries(CATEGORIES).map(([k, v]) => [k, v.label])], ui.catFilter, 'cat-filter');
 
-function taskHtml(task, date, { showDate = false } = {}) {
+const WEEKDAY_LETTERS = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
+
+const mondayOf = (date) => addDays(date, -((parseIso(date).getDay() + 6) % 7));
+
+// Faixa com os 7 dias da semana; tocar num dia mostra as tarefas dele na tela Hoje.
+function weekStripHtml(selected) {
+  const t = today();
+  const monday = mondayOf(selected);
+  return `<div class="week">${Array.from({ length: 7 }, (_, i) => {
+    const day = addDays(monday, i);
+    const has = tasksOn(day).length || db.exams.some((e) => e.date === day);
+    const cls = [day === selected && 'on', day === t && 'today', has && 'has'].filter(Boolean).join(' ');
+    return `<button class="day ${cls}" data-action="pick-day" data-date="${day}" aria-label="${fmtLongDate(day)}">
+      ${WEEKDAY_LETTERS[parseIso(day).getDay()]}<b>${parseIso(day).getDate()}</b><i></i></button>`;
+  }).join('')}</div>`;
+}
+
+const minutesOf = (time) => {
+  const [h, m] = time.split(':').map(Number);
+  return h * 60 + m;
+};
+
+// Próximo compromisso com horário ainda não feito (ou que começou há menos de 1 hora).
+function focusTask(tasks, date) {
+  const now = new Date();
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const next = tasks.find((x) => x.time && !isDone(x, date) && minutesOf(x.time) >= nowMin - 60);
+  if (!next) return null;
+  const diff = minutesOf(next.time) - nowMin;
+  let label;
+  if (diff <= 0) label = 'Acontecendo agora';
+  else if (diff < 60) label = `Agora · em ${diff} min`;
+  else label = `Próximo · às ${next.time}`;
+  return { task: next, label };
+}
+
+function focusHtml({ task, label }, date) {
+  const cat = CATEGORIES[task.cat] || CATEGORIES.pessoal;
+  const rep = repeatLabel(task);
+  return `
+    <div class="focus task">
+      <div class="row-main" data-action="edit-task" data-id="${task.id}">
+        <div class="focus-k">${label}</div>
+        <div class="focus-title">${esc(task.title)}</div>
+        <div class="focus-chips"><span>${esc(task.time)}</span><span>${cat.label}</span>${rep ? `<span>${rep}</span>` : ''}</div>
+      </div>
+      <button class="check" data-action="toggle-task" data-id="${task.id}" data-date="${date}" aria-label="Concluir"></button>
+    </div>`;
+}
+
+// Prova mais próxima (até 14 dias) e o conteúdo dela que mais precisa de revisão.
+function examBannerHtml() {
+  const t = today();
+  const exam = db.exams
+    .filter((e) => e.date >= t && daysBetween(t, e.date) <= 14 && byId(db.subjects, e.subjectId))
+    .sort((a, b) => a.date.localeCompare(b.date))[0];
+  if (!exam) return '';
+  const subj = byId(db.subjects, exam.subjectId);
+  const until = daysBetween(t, exam.date);
+  const when = until === 0 ? 'é hoje' : until === 1 ? 'é amanhã' : `em ${until} dias`;
+  const top = rankedTopics(subj.id).find((x) => !x.studiedToday);
+  return `
+    <button class="exam-banner" data-action="exam-study" data-id="${subj.id}">
+      ${icon('flag')}
+      <span><b>${esc(exam.title || 'Prova')} de ${esc(subj.name)} ${when}</b>
+        <small>${top ? `Revise primeiro: ${esc(top.topic.title)}` : 'Cadastre os conteúdos dessa matéria'}</small></span>
+      ${icon('arrow')}
+    </button>`;
+}
+
+function evHtml(task, date, { late = false } = {}) {
   const cat = CATEGORIES[task.cat] || CATEGORIES.pessoal;
   const done = isDone(task, date);
   const rep = repeatLabel(task);
+  const timeLabel = late ? fmtDate(date) : task.time || 'livre';
   return `
-    <div class="row task ${done ? 'done' : ''}">
-      <button class="check" data-action="toggle-task" data-id="${task.id}" data-date="${date}"
-        aria-label="${done ? 'Desmarcar' : 'Concluir'}">${done ? icon('check') : ''}</button>
+    <div class="ev task ${done ? 'done' : ''}" style="--c:${cat.color}">
+      <span class="ev-time ${late ? 'late' : ''}">${esc(timeLabel)}</span>
       <div class="row-main" data-action="edit-task" data-id="${task.id}">
         <div class="row-title">${esc(task.title)}</div>
         <div class="row-meta">
-          ${task.time ? `<span class="time">${esc(task.time)}</span>` : ''}
-          <span><i class="dot" style="background:${cat.color}"></i>${cat.label}</span>
-          ${showDate ? `<span class="danger">${fmtDate(date)}, ${relDays(daysBetween(today(), date))}</span>` : ''}
+          ${late && task.time ? `<span>${esc(task.time)}</span>` : ''}
+          <span>${cat.label}</span>
           ${rep ? `<span>${icon('repeat', 'sm')}${rep}</span>` : ''}
           ${task.remind != null ? `<span title="Com lembrete">${icon('bell', 'sm')}</span>` : ''}
+          ${late ? `<span class="danger">${relDays(daysBetween(today(), date))}</span>` : ''}
         </div>
       </div>
+      <button class="check" data-action="toggle-task" data-id="${task.id}" data-date="${date}"
+        aria-label="${done ? 'Desmarcar' : 'Concluir'}">${done ? icon('check') : ''}</button>
     </div>`;
 }
+
+const timeline = (items, opts) => `<div class="timeline">${items.map(([task, date]) => evHtml(task, date, opts)).join('')}</div>`;
 
 function examHtml(exam, { showSubject = true } = {}) {
   const s = byId(db.subjects, exam.subjectId);
@@ -389,27 +471,26 @@ function examHtml(exam, { showSubject = true } = {}) {
     </div>`;
 }
 
-const levelHtml = (topic) =>
-  `<button class="tag level level-${topic.level}" data-action="cycle-level" data-id="${topic.id}"
-    title="Toque para mudar a dificuldade">${LEVELS[topic.level]}</button>`;
+// Dificuldade em bolinhas: ●●● difícil, ●●○ médio, ●○○ tranquilo. Tocar troca o nível.
+const levelDots = (topic) =>
+  `<button class="lvl lvl-${topic.level}" data-action="cycle-level" data-id="${topic.id}"
+    aria-label="Dificuldade: ${LEVELS[topic.level]}. Toque para mudar." title="${LEVELS[topic.level]}"><i></i><i></i><i></i></button>`;
 
-function rankHtml(item, n) {
+function rankHtml(item) {
   const { topic, reasons, studiedToday } = item;
   const subj = byId(db.subjects, topic.subjectId);
   return `
     <div class="row rank ${studiedToday ? 'is-done' : ''}">
-      <span class="rank-n">${n}</span>
       <div class="row-main" data-action="edit-topic" data-id="${topic.id}">
         <div class="row-title">${esc(topic.title)}</div>
-        <div class="row-meta">
-          ${levelHtml(topic)}
-          <span><i class="dot" style="background:${subj.color}"></i>${esc(subj.name)}</span>
-          ${studiedToday ? '' : reasons.map((r) => `<span class="${r.cls}">${esc(r.text)}</span>`).join('')}
-        </div>
+        <div class="row-meta">${levelDots(topic)}<span>${esc(subj.name)}</span></div>
+        <div class="row-meta">${studiedToday
+          ? '<span>Estudado hoje</span>'
+          : reasons.map((r) => `<span class="${r.cls}">${esc(r.text)}</span>`).join('')}</div>
       </div>
       ${studiedToday
-        ? `<span class="done-note">${icon('check', 'sm')}Hoje</span>`
-        : `<button class="btn" data-action="studied" data-id="${topic.id}">Estudei</button>`}
+        ? `<span class="studied on" title="Estudado hoje">${icon('check')}</span>`
+        : `<button class="studied" data-action="studied" data-id="${topic.id}" aria-label="Estudei">${icon('check')}</button>`}
     </div>`;
 }
 
@@ -417,39 +498,45 @@ function rankHtml(item, n) {
 
 function viewHoje() {
   const t = today();
-  const tasks = tasksOn(t, ui.catFilter);
-  const late = overdueTasks(ui.catFilter);
-  const done = tasks.filter((x) => isDone(x, t)).length;
+  const sel = ui.selectedDate || t;
+  const isToday = sel === t;
+  const tasks = tasksOn(sel, ui.catFilter);
+  const done = tasks.filter((x) => isDone(x, sel)).length;
+  const focus = isToday ? focusTask(tasks, sel) : null;
+  const rest = focus ? tasks.filter((x) => x !== focus.task) : tasks;
+  const late = isToday ? overdueTasks(ui.catFilter) : [];
+  const dayExams = isToday ? [] : db.exams.filter((e) => e.date === sel);
 
-  const exams = db.exams
-    .filter((e) => e.date >= t && daysBetween(t, e.date) <= 14)
-    .sort((a, b) => a.date.localeCompare(b.date));
+  let restBody;
+  if (rest.length) restBody = timeline(rest.map((x) => [x, sel]));
+  else restBody = `<p class="empty">${tasks.length ? 'Nada além disso.' : 'Nada marcado para este dia.'}</p>`;
 
-  const study = rankedTopics().filter((x) => !x.studiedToday).slice(0, 3);
-
-  let studyBody;
-  if (study.length) studyBody = list(study.map((x, i) => rankHtml(x, i + 1)));
-  else if (db.topics.length) studyBody = '<p class="empty">Tudo estudado hoje.</p>';
-  else studyBody = `<p class="empty">Cadastre os conteúdos em <button class="btn text" data-action="go" data-tab="materias">Matérias</button></p>`;
+  let studyBody = '';
+  if (isToday) {
+    const study = rankedTopics().filter((x) => !x.studiedToday).slice(0, 3);
+    if (study.length) studyBody = list(study.map(rankHtml));
+    else if (db.topics.length) studyBody = '<p class="empty">Tudo estudado hoje.</p>';
+    else studyBody = `<p class="empty">Cadastre os conteúdos em <button class="btn text" data-action="go" data-tab="materias">Matérias</button></p>`;
+  }
 
   return `
-    <p class="eyebrow">${fmtLongDate(t)}</p>
-    <p class="greeting">${esc(greeting())}</p>
+    ${weekStripHtml(sel)}
     ${notifBannerHtml()}
+    ${focus ? focusHtml(focus, sel) : ''}
+    ${isToday ? examBannerHtml() : ''}
     ${catFilterHtml()}
-    ${late.length ? section('Atrasadas', list(late.map((x) => taskHtml(x, x.date, { showDate: true })))) : ''}
-    ${section('Tarefas',
-      tasks.length ? list(tasks.map((x) => taskHtml(x, t))) : '<p class="empty">Nada para hoje.</p>',
+    ${late.length ? section('Atrasadas', timeline(late.map((x) => [x, x.date]), { late: true })) : ''}
+    ${dayExams.length ? section('Provas', list(dayExams.map((e) => examHtml(e)))) : ''}
+    ${section(focus ? 'Resto do dia' : 'Tarefas', restBody,
       tasks.length ? `<span class="count">${done} de ${tasks.length}</span>` : '')}
-    ${exams.length ? section('Provas', list(exams.map((e) => examHtml(e)))) : ''}
-    ${section('Para estudar', studyBody,
-      db.topics.length ? '<button class="btn text" data-action="go" data-tab="estudar">Ver fila</button>' : '')}`;
+    ${isToday
+      ? section('Para estudar', studyBody, db.topics.length ? '<button class="btn text" data-action="go" data-tab="estudar">Ver fila</button>' : '')
+      : `<button class="btn week-back" data-action="pick-day" data-date="${t}">Voltar para hoje</button>`}`;
 }
 
 function viewSemana() {
   const t = today();
-  const d = parseIso(t);
-  const monday = addDays(t, -((d.getDay() + 6) % 7) + ui.weekOffset * 7);
+  const monday = addDays(mondayOf(t), ui.weekOffset * 7);
   const days = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
   const label = ui.weekOffset === 0 ? 'Esta semana' : `${fmtDate(days[0])} a ${fmtDate(days[6])}`;
 
@@ -461,15 +548,14 @@ function viewSemana() {
     </div>
     ${catFilterHtml()}
     ${days.map((day) => {
-      const rows = [
-        ...db.exams.filter((e) => e.date === day).map((e) => examHtml(e)),
-        ...tasksOn(day, ui.catFilter).map((x) => taskHtml(x, day)),
-      ];
+      const exams = db.exams.filter((e) => e.date === day);
+      const tasks = tasksOn(day, ui.catFilter);
+      const body = (exams.length ? list(exams.map((e) => examHtml(e))) : '') + (tasks.length ? timeline(tasks.map((x) => [x, day])) : '');
       // Dia livre fica só com o cabeçalho, para a semana caber melhor na tela.
       return section(
         `${fmtDate(day, { weekday: 'long' })}, ${fmtDate(day)}`,
-        rows.length ? list(rows) : '',
-        `${rows.length ? '' : '<span class="count">Livre</span>'}
+        body,
+        `${body ? '' : '<span class="count">Livre</span>'}
          <button class="icon-btn" data-action="new-task" data-date="${day}" aria-label="Adicionar tarefa">${icon('plus')}</button>`,
         day === t ? 'today' : '');
     }).join('')}
@@ -512,7 +598,7 @@ function viewMaterias() {
       ${suggestionsHtml()}`;
   }
   const t = today();
-  return db.subjects.map((s) => {
+  return '<div style="height:6px"></div>' + db.subjects.map((s) => {
     const topics = db.topics.filter((x) => x.subjectId === s.id)
       .sort((a, b) => b.level - a.level || a.title.localeCompare(b.title));
     const hard = topics.filter((x) => x.level === 3).length;
@@ -540,9 +626,9 @@ function viewMaterias() {
         <div class="row topic">
           <div class="row-main" data-action="edit-topic" data-id="${x.id}">
             <div class="row-title">${esc(x.title)}</div>
-            <div class="row-meta"><span>${x.lastStudied ? `Estudado ${relDays(-daysBetween(x.lastStudied, t))}` : 'Nunca estudado'}</span></div>
+            <div class="row-meta">${levelDots(x)}<span>${LEVELS[x.level]}</span>
+              <span>${x.lastStudied ? `Estudado ${relDays(-daysBetween(x.lastStudied, t))}` : 'Nunca estudado'}</span></div>
           </div>
-          ${levelHtml(x)}
         </div>`));
       rows.push(...exams.map((e) => examHtml(e, { showSubject: false }).replace('class="row"', 'class="row topic"')));
       const suggested = topicSuggestions(s);
@@ -568,6 +654,16 @@ function viewMaterias() {
   }).join('') + `<button class="btn week-back" data-action="new-subject">${icon('plus')}Nova matéria</button>${suggestionsHtml()}`;
 }
 
+// Nome curto para os filtros: "Direito Civil I – Parte Geral" vira "Civil I",
+// "Teoria Geral do Processo" vira "TGP" e "Hermenêutica Jurídica e..." vira "Hermenêutica".
+function shortName(name) {
+  const base = name.split(' – ')[0].replace(/^Direito (d[aoe]s? )?/i, '');
+  if (base.length <= 18) return base;
+  const first = base.split(' ')[0];
+  if (first.length >= 8) return first;
+  return base.split(' ').filter((w) => /^[A-ZÀ-Ú]/.test(w)).map((w) => w[0]).join('');
+}
+
 function viewEstudar() {
   if (!db.topics.length) {
     return `
@@ -576,18 +672,20 @@ function viewEstudar() {
   }
   const items = rankedTopics(ui.studySubject);
   return `
-    <p class="eyebrow">Ordem pela dificuldade, tempo sem revisar e provas próximas.</p>
+    ${filterHtml([['todas', 'Todas'], ...db.subjects.map((s) => [s.id, shortName(s.name)])], ui.studySubject, 'study-filter')}
     <div style="height:12px"></div>
-    ${filterHtml([['todas', 'Todas'], ...db.subjects.map((s) => [s.id, s.name])], ui.studySubject, 'study-filter')}
-    <div style="height:12px"></div>
-    ${items.length ? list(items.map((x, i) => rankHtml(x, i + 1))) : '<p class="empty">Nenhum conteúdo nessa matéria.</p>'}`;
+    ${items.length ? list(items.map(rankHtml)) : '<p class="empty">Nenhum conteúdo nessa matéria.</p>'}`;
 }
 
 const VIEWS = {
-  hoje: { title: 'Hoje', render: viewHoje },
-  semana: { title: 'Semana', render: viewSemana },
-  materias: { title: 'Matérias', render: viewMaterias },
-  estudar: { title: 'O que estudar', render: viewEstudar },
+  hoje: {
+    eyebrow: () => fmtLongDate(ui.selectedDate || today()),
+    title: () => greeting(),
+    render: viewHoje,
+  },
+  semana: { eyebrow: () => 'Sua rotina', title: () => 'Semana', render: viewSemana },
+  materias: { eyebrow: () => `Semestre ${SEMESTER.id}`, title: () => 'Matérias', render: viewMaterias },
+  estudar: { eyebrow: () => 'Mais urgente primeiro', title: () => 'O que estudar', render: viewEstudar },
 };
 
 // ---------- Tema ----------
@@ -602,7 +700,7 @@ function applyTheme() {
   if (db.settings.theme === 'auto') delete root.dataset.theme;
   else root.dataset.theme = db.settings.theme;
   const dark = isDark();
-  document.querySelector('meta[name=theme-color]').content = dark ? '#141312' : '#f7f6f3';
+  document.querySelector('meta[name=theme-color]').content = dark ? '#15161c' : '#f3eee4';
   const btn = document.getElementById('btn-theme');
   btn.innerHTML = icon(dark ? 'sun' : 'moon');
   btn.setAttribute('aria-label', dark ? 'Usar modo claro' : 'Usar modo escuro');
@@ -618,7 +716,8 @@ darkQuery.addEventListener('change', applyTheme);
 
 function render() {
   const v = VIEWS[ui.tab];
-  document.getElementById('title').textContent = v.title;
+  document.getElementById('eyebrow').textContent = v.eyebrow();
+  document.getElementById('title').textContent = v.title();
   document.getElementById('view').innerHTML = v.render();
   document.querySelectorAll('.tabs button').forEach((b) => b.classList.toggle('active', b.dataset.tab === ui.tab));
 }
@@ -841,7 +940,7 @@ function addChooser() {
     <div class="modal-actions"><span class="spacer"></span><button class="btn" value="cancel" formnovalidate>Cancelar</button></div>`,
   (action) => {
     modal.close();
-    ({ task: () => taskModal(), topic: () => topicModal(), exam: () => examModal(), subject: () => subjectModal() })[action]?.();
+    ({ task: () => taskModal(null, ui.tab === 'hoje' ? ui.selectedDate : null), topic: () => topicModal(), exam: () => examModal(), subject: () => subjectModal() })[action]?.();
     return false;
   });
 }
@@ -1268,6 +1367,7 @@ document.addEventListener('click', (e) => {
   const tabBtn = e.target.closest('.tabs button');
   if (tabBtn) {
     ui.tab = tabBtn.dataset.tab;
+    if (ui.tab === 'hoje') ui.selectedDate = null;
     render();
     window.scrollTo(0, 0);
     return;
@@ -1296,6 +1396,8 @@ document.addEventListener('click', (e) => {
     case 'studied': markStudied(byId(db.topics, id)); break;
     case 'study-filter': ui.studySubject = id; break;
     case 'go': ui.tab = el.dataset.tab; window.scrollTo(0, 0); break;
+    case 'pick-day': ui.selectedDate = el.dataset.date === today() ? null : el.dataset.date; break;
+    case 'exam-study': ui.tab = 'estudar'; ui.studySubject = id; window.scrollTo(0, 0); break;
     case 'toggle-suggestions':
       ui.openSuggestions.has(id) ? ui.openSuggestions.delete(id) : ui.openSuggestions.add(id);
       break;
@@ -1344,6 +1446,11 @@ document.addEventListener('visibilitychange', () => {
 });
 
 setInterval(checkReminders, 30000);
+
+// Mantém o bloco "Agora" da tela Hoje em dia ("em 40 min", "em 39 min"...).
+setInterval(() => {
+  if (ui.tab === 'hoje' && !modal.open && !document.hidden) render();
+}, 60000);
 
 document.querySelectorAll('[data-icon]').forEach((el) => {
   el.innerHTML = icon(el.dataset.icon);
