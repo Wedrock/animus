@@ -24,13 +24,22 @@
 </head>
 <body>
   <header class="topbar">
+    <div class="brand"><span>Animus</span><i></i><small>Estudos e rotina</small></div>
     <div class="top-text">
       <p class="eyebrow" id="eyebrow"></p>
       <h1 id="title">Hoje</h1>
     </div>
+    <nav class="topnav" aria-label="Seções">
+      <button data-tab="hoje" class="active">Hoje</button>
+      <button data-tab="semana">Semana</button>
+      <button data-tab="materias">Matérias</button>
+      <button data-tab="estudar">Estudar</button>
+    </nav>
     <div class="topbar-actions">
+      <button class="btn primary" id="btn-new"><span data-icon="plus"></span>Novo</button>
       <button class="icon-btn" id="btn-theme" aria-label="Alternar modo escuro"></button>
       <button class="icon-btn" id="btn-settings" aria-label="Configurações" data-icon="sliders"></button>
+      <button class="userchip" id="btn-user" aria-label="Configurações da conta"><span class="avatar" id="avatar"></span><span id="username"></span></button>
     </div>
   </header>
 
@@ -62,6 +71,7 @@
   <div id="toast" role="status"></div>
 
   <script src="firebase-config.js"></script>
+  <script src="desktop.js"></script>
   <script src="app.js"></script>
   <script type="module" src="sync.js"></script>
 </body>

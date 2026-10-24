@@ -50,6 +50,15 @@ Cada conteúdo recebe uma pontuação:
 
 Conteúdos estudados hoje vão para o fim da lista.
 
+## Celular e computador
+
+O app tem dois layouts com o mesmo visual (papel creme, roxo e títulos em Fraunces):
+
+- **Celular** (até 1023px): abas embaixo, botão + flutuante e telas em uma coluna (`app.js`).
+- **Computador** (a partir de 1024px): menu no topo e telas em colunas (`desktop.js`): Hoje com
+  painéis de estudo e provas ao lado, Semana em 7 colunas, Matérias em lista + detalhe e a fila
+  de estudo mostrando de onde vem a pontuação de cada conteúdo.
+
 ## Conta e sincronização (Firebase)
 
 Com o Firebase configurado em `firebase-config.js`, o app abre numa tela de entrada e só pode ser

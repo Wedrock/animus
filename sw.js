@@ -1,5 +1,5 @@
-const CACHE = 'animus-v15';
-const FILES = ['./', 'index.html', 'style.css', 'app.js', 'sync.js', 'firebase-config.js', 'manifest.json', 'icon.svg'];
+const CACHE = 'animus-v17';
+const FILES = ['./', 'index.html', 'style.css', 'app.js', 'desktop.js', 'sync.js', 'firebase-config.js', 'manifest.json', 'icon.svg'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)));

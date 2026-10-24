@@ -153,6 +153,7 @@ const ui = {
   openSuggestions: new Set(),
   studySubject: 'todas',
   selectedDate: null, // dia mostrado na tela Hoje (null = hoje)
+  selectedSubject: null, // matéria aberta na tela Matérias do computador
 };
 
 // ---------- Utilidades ----------
@@ -271,14 +272,15 @@ function nextExam(subjectId) {
 function scoreTopic(topic) {
   const t = today();
   const reasons = [];
-  let score = { 3: 30, 2: 15, 1: 3 }[topic.level] ?? 15;
+  // Parcelas da pontuação, mostradas na fila de estudo do computador.
+  const parts = [{ text: `Dificuldade: ${LEVELS[topic.level]}`, pts: { 3: 30, 2: 15, 1: 3 }[topic.level] ?? 15, cls: '' }];
 
   if (!topic.lastStudied) {
-    score += 12;
+    parts.push({ text: 'Nunca estudado', pts: 12, cls: '' });
     reasons.push({ text: 'Nunca estudado', cls: '' });
   } else {
     const since = daysBetween(topic.lastStudied, t);
-    score += Math.min(since, 30) * 0.6;
+    parts.push({ text: since > 0 ? `Sem revisar: ${since} dia${since === 1 ? '' : 's'}` : 'Revisado hoje', pts: Math.min(since, 30) * 0.6, cls: '' });
     if (since > 0) reasons.push({ text: `Revisado ${relDays(-since)}`, cls: '' });
   }
 
@@ -286,11 +288,13 @@ function scoreTopic(topic) {
   if (exam) {
     const until = daysBetween(t, exam.date);
     if (until <= 21) {
-      score += (22 - until) * 2 * (topic.level >= 2 ? 1 : 0.5);
-      reasons.push({ text: `${exam.title || 'Prova'} ${relDays(until)}`, cls: until <= 7 ? 'danger' : 'warn' });
+      const cls = until <= 7 ? 'danger' : 'warn';
+      parts.push({ text: `${exam.title || 'Prova'} ${relDays(until)}`, pts: (22 - until) * 2 * (topic.level >= 2 ? 1 : 0.5), cls });
+      reasons.push({ text: `${exam.title || 'Prova'} ${relDays(until)}`, cls });
     }
   }
-  return { score, reasons };
+  const score = parts.reduce((sum, p) => sum + p.pts, 0);
+  return { score, reasons, parts };
 }
 
 function rankedTopics(subjectFilter = 'todas') {
@@ -682,10 +686,11 @@ const VIEWS = {
     eyebrow: () => fmtLongDate(ui.selectedDate || today()),
     title: () => greeting(),
     render: viewHoje,
+    desktop: deskHoje,
   },
-  semana: { eyebrow: () => 'Sua rotina', title: () => 'Semana', render: viewSemana },
-  materias: { eyebrow: () => `Semestre ${SEMESTER.id}`, title: () => 'Matérias', render: viewMaterias },
-  estudar: { eyebrow: () => 'Mais urgente primeiro', title: () => 'O que estudar', render: viewEstudar },
+  semana: { eyebrow: () => 'Sua rotina', title: () => 'Semana', render: viewSemana, desktop: deskSemana },
+  materias: { eyebrow: () => `Semestre ${SEMESTER.id}`, title: () => 'Matérias', render: viewMaterias, desktop: deskMaterias },
+  estudar: { eyebrow: () => 'Mais urgente primeiro', title: () => 'O que estudar', render: viewEstudar, desktop: deskEstudar },
 };
 
 // ---------- Tema ----------
@@ -718,8 +723,11 @@ function render() {
   const v = VIEWS[ui.tab];
   document.getElementById('eyebrow').textContent = v.eyebrow();
   document.getElementById('title').textContent = v.title();
-  document.getElementById('view').innerHTML = v.render();
-  document.querySelectorAll('.tabs button').forEach((b) => b.classList.toggle('active', b.dataset.tab === ui.tab));
+  document.getElementById('view').innerHTML = isDesktop() ? v.desktop() : v.render();
+  document.querySelectorAll('.tabs button, .topnav button').forEach((b) => b.classList.toggle('active', b.dataset.tab === ui.tab));
+  const name = db.settings.name.trim();
+  document.getElementById('username').textContent = name || 'Configurações';
+  document.getElementById('avatar').textContent = name ? name.split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase() : '';
 }
 
 // ---------- Modais ----------
@@ -1364,7 +1372,7 @@ function googleCalendarUrl(task) {
 // ---------- Eventos ----------
 
 document.addEventListener('click', (e) => {
-  const tabBtn = e.target.closest('.tabs button');
+  const tabBtn = e.target.closest('.tabs button, .topnav button');
   if (tabBtn) {
     ui.tab = tabBtn.dataset.tab;
     if (ui.tab === 'hoje') ui.selectedDate = null;
@@ -1398,6 +1406,9 @@ document.addEventListener('click', (e) => {
     case 'go': ui.tab = el.dataset.tab; window.scrollTo(0, 0); break;
     case 'pick-day': ui.selectedDate = el.dataset.date === today() ? null : el.dataset.date; break;
     case 'exam-study': ui.tab = 'estudar'; ui.studySubject = id; window.scrollTo(0, 0); break;
+    case 'select-subject': ui.selectedSubject = id; break;
+    case 'open-settings': return settingsModal();
+    case 'export-ics': downloadIcs(icsCalendar(allEvents()), `animus-agenda-${today()}.ics`); return;
     case 'toggle-suggestions':
       ui.openSuggestions.has(id) ? ui.openSuggestions.delete(id) : ui.openSuggestions.add(id);
       break;
@@ -1417,13 +1428,21 @@ document.addEventListener('click', (e) => {
   render();
 });
 
-document.getElementById('fab').addEventListener('click', () => {
+function onAdd() {
   if (ui.tab === 'materias') return db.subjects.length ? addChooser() : subjectModal();
   if (ui.tab === 'estudar') return topicModal();
   addChooser();
-});
+}
 
+document.getElementById('fab').addEventListener('click', onAdd);
+document.getElementById('btn-new').addEventListener('click', onAdd);
 document.getElementById('btn-settings').addEventListener('click', settingsModal);
+document.getElementById('btn-user').addEventListener('click', settingsModal);
+
+// Ao cruzar a largura de computador (girar o tablet, redimensionar a janela), troca o layout.
+desktopQuery.addEventListener('change', () => {
+  if (!modal.open) render();
+});
 document.getElementById('btn-theme').addEventListener('click', () => setTheme(isDark() ? 'light' : 'dark'));
 
 // Atualiza o quadro da conta em Configurações, se estiver aberto.
