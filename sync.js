@@ -45,6 +45,7 @@ async function start() {
   ]);
 
   const app = initializeApp(window.FIREBASE_CONFIG);
+  // O login fica salvo no aparelho (IndexedDB) e continua valendo até ela sair da conta.
   const auth = fa.getAuth(app);
   const store = fs.getFirestore(app);
   const provider = new fa.GoogleAuthProvider();

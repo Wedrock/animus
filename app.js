@@ -1310,6 +1310,11 @@ applyTheme();
 render();
 checkReminders();
 
+// Pede ao navegador para não apagar os dados do app quando o celular estiver sem espaço.
+// Isso protege as tarefas salvas no aparelho e o login da conta. Em apps instalados o
+// Chrome costuma aceitar sem perguntar nada.
+navigator.storage?.persist?.().catch(() => {});
+
 if (navigator.serviceWorker && location.protocol !== 'file:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});
 }
