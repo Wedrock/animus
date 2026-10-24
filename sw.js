@@ -1,4 +1,4 @@
-const CACHE = 'animus-v11';
+const CACHE = 'animus-v12';
 const FILES = ['./', 'index.html', 'style.css', 'app.js', 'sync.js', 'firebase-config.js', 'manifest.json', 'icon.svg'];
 
 self.addEventListener('install', (e) => {
@@ -21,7 +21,9 @@ self.addEventListener('fetch', (e) => {
   const { origin, host } = new URL(e.request.url);
   if (origin !== self.location.origin && host !== 'www.gstatic.com') return;
   e.respondWith(
-    fetch(e.request)
+    // no-cache: sempre confere com o servidor se há versão nova (o GitHub Pages
+    // guarda os arquivos por 10 minutos); sem internet, usa a cópia salva.
+    fetch(e.request, { cache: 'no-cache' })
       .then((res) => {
         const copy = res.clone();
         caches.open(CACHE).then((c) => c.put(e.request, copy));

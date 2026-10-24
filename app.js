@@ -87,7 +87,7 @@ const REMIND_OPTIONS = [
 ];
 
 function defaultSettings() {
-  return { name: 'Maria Eduarda', theme: 'auto', studyReminder: '20:00', examReminders: true, notifBannerHidden: false };
+  return { name: 'Maria Eduarda', theme: 'auto', studyReminder: '20:00', examReminders: true, notifBannerHidden: false, cloudBannerHidden: false };
 }
 
 function emptyState() {
@@ -435,7 +435,7 @@ function viewHoje() {
   return `
     <p class="eyebrow">${fmtLongDate(t)}</p>
     <p class="greeting">${esc(greeting())}</p>
-    ${notifBannerHtml()}
+    ${cloudBannerHtml() || notifBannerHtml()}
     ${catFilterHtml()}
     ${late.length ? section('Atrasadas', list(late.map((x) => taskHtml(x, x.date, { showDate: true })))) : ''}
     ${section('Tarefas',
@@ -1098,6 +1098,22 @@ async function enableNotifications() {
   render();
 }
 
+// Convite para entrar na conta, enquanto ela não entrou.
+function cloudBannerHtml() {
+  const c = window.cloud;
+  if (!c?.configured || c.user || c.state !== 'signed-out' || db.settings.cloudBannerHidden) return '';
+  return `
+    <div class="notice">
+      ${icon('upload')}
+      <div class="row-main">
+        <div class="row-title">Salvar na nuvem</div>
+        <div class="row-meta">Entre para não perder nada e usar no computador também.</div>
+      </div>
+      <button class="btn primary" data-action="cloud-signin">Entrar</button>
+      <button class="icon-btn" data-action="hide-cloud-banner" aria-label="Dispensar">${icon('x')}</button>
+    </div>`;
+}
+
 function notifBannerHtml() {
   if (db.settings.notifBannerHidden || notifGranted()) return '';
   const supported = 'Notification' in window;
@@ -1273,6 +1289,10 @@ document.addEventListener('click', (e) => {
       break;
     case 'enable-notif': enableNotifications(); return;
     case 'hide-notif-banner': db.settings.notifBannerHidden = true; save(); break;
+    case 'hide-cloud-banner': db.settings.cloudBannerHidden = true; save(); break;
+    case 'cloud-signin':
+      window.cloud.signIn().catch(() => toast('Não foi possível entrar agora.'));
+      return;
     default: return;
   }
   render();
@@ -1291,6 +1311,7 @@ document.getElementById('btn-theme').addEventListener('click', () => setTheme(is
 window.addEventListener('cloud-status', () => {
   const box = document.getElementById('cloud-box');
   if (box) box.innerHTML = cloudBoxHtml();
+  if (ui.tab === 'hoje' && !modal.open) render();
 });
 
 // Atualiza a tela ao virar o dia ou ao voltar para o app.
