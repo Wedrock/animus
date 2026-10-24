@@ -2,6 +2,7 @@
 
 // ---------- Dados ----------
 
+// Nome antigo do app; mantido para não perder os dados já salvos.
 const STORAGE_KEY = 'minhas-tarefas:v1';
 
 const CATEGORIES = {
@@ -893,13 +894,13 @@ function settingsModal() {
       save();
       toast('Configurações salvas.');
     } else if (action === 'export-ics') {
-      downloadIcs(icsCalendar(allEvents()), `minhas-tarefas-${today()}.ics`);
+      downloadIcs(icsCalendar(allEvents()), `animus-agenda-${today()}.ics`);
       return false;
     } else if (action === 'export') {
       const blob = new Blob([JSON.stringify(db, null, 2)], { type: 'application/json' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = `minhas-tarefas-backup-${today()}.json`;
+      a.download = `animus-backup-${today()}.json`;
       a.click();
       URL.revokeObjectURL(a.href);
     } else if (action === 'wipe') {
@@ -1124,7 +1125,7 @@ function allEvents() {
     events.push({
       uid: 'estudo-diario',
       summary: 'Hora de estudar',
-      description: 'Abra o Minhas Tarefas para ver o que estudar primeiro.',
+      description: 'Abra o Animus para ver o que estudar primeiro.',
       start: icsTime(t, db.settings.studyReminder),
       end: icsTime(t, addMinutes(db.settings.studyReminder, 60)),
       rrule: 'FREQ=DAILY',
@@ -1139,7 +1140,7 @@ const fold = (line) => line.match(/.{1,60}/gu).join('\r\n ');
 
 function icsCalendar(events) {
   const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
-  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Minhas Tarefas//PT-BR', 'CALSCALE:GREGORIAN'];
+  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Animus//PT-BR', 'CALSCALE:GREGORIAN'];
   for (const ev of events) {
     lines.push('BEGIN:VEVENT', `UID:${ev.uid}@minhas-tarefas`, `DTSTAMP:${stamp}`, `SUMMARY:${icsText(ev.summary)}`);
     if (ev.allDay) lines.push(`DTSTART;VALUE=DATE:${ev.allDay}`, `DTEND;VALUE=DATE:${ev.allDayEnd}`);

@@ -1,6 +1,6 @@
 {
-  "name": "Minhas Tarefas",
-  "short_name": "Tarefas",
+  "name": "Animus",
+  "short_name": "Animus",
   "description": "Rotina de faculdade, trabalho e vida pessoal, e o que estudar primeiro.",
   "start_url": "./",
   "scope": "./",

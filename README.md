@@ -1,4 +1,6 @@
-# Minhas Tarefas
+# Animus
+
+*Animus*: em latim jurídico, a intenção, a vontade de agir.
 
 App para organizar a rotina de **faculdade**, **trabalho** e **vida pessoal**, e descobrir
 quais **conteúdos da faculdade** precisam de mais estudo.
