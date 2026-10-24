@@ -740,8 +740,11 @@ function openModal(html, handler) {
   modalForm.innerHTML = html;
   modalHandler = handler;
   modal.showModal();
+  // O navegador põe o cursor no primeiro campo ao abrir a janela, e no celular isso abre
+  // o teclado. Só deixa o cursor lá quando o campo está vazio (ex.: título de tarefa nova).
   const first = modalForm.querySelector('input[type=text], textarea');
   if (first && !first.value) first.focus();
+  else document.activeElement?.blur();
 }
 
 modalForm.addEventListener('submit', (e) => {
