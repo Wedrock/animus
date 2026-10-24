@@ -52,7 +52,7 @@ Conteúdos estudados hoje vão para o fim da lista.
 
 ## Celular e computador
 
-O app tem dois layouts com o mesmo visual (papel creme, roxo e títulos em Fraunces):
+O app tem dois layouts com o mesmo visual (papel creme, roxo e fonte Rubik):
 
 - **Celular** (até 1023px): abas embaixo, botão + flutuante e telas em uma coluna (`app.js`).
 - **Computador** (a partir de 1024px): menu no topo e telas em colunas (`desktop.js`): Hoje com
