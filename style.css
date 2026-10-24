@@ -280,9 +280,20 @@ details.hint p { margin: 8px 0 0; }
 .colors input { position: absolute; opacity: 0; pointer-events: none; }
 .colors input:checked + span { outline: 2px solid var(--text); outline-offset: 2px; }
 
+/* Tela de entrada */
+#gate { position: fixed; inset: 0; z-index: 30; display: flex; align-items: center; padding: 24px; background: var(--bg); }
+#gate[hidden] { display: none; }
+.gate-box { width: 100%; max-width: 380px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+.gate-box img { width: 64px; height: 64px; border-radius: 14px; }
+.gate-box h1 { font-family: var(--serif); font-size: 2.2rem; font-weight: 600; margin: 6px 0 0; }
+.gate-box p { margin: 0; color: var(--muted); }
+.gate-box .btn { min-height: 48px; margin-top: 10px; }
+.gate-box .btn[hidden] { display: none; }
+body.locked { overflow: hidden; }
+
 #toast {
   position: fixed; left: 50%; bottom: calc(140px + env(safe-area-inset-bottom)); transform: translateX(-50%);
   background: var(--text); color: var(--bg); padding: 10px 16px; border-radius: 8px; font-size: .9rem;
-  opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 20; max-width: calc(100vw - 32px);
+  opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 40; max-width: calc(100vw - 32px);
 }
 #toast.show { opacity: 1; }

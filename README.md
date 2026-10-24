@@ -50,11 +50,16 @@ Cada conteúdo recebe uma pontuação:
 
 Conteúdos estudados hoje vão para o fim da lista.
 
-## Sincronização com Firebase (opcional)
+## Conta e sincronização (Firebase)
 
-Com o Firebase configurado, ela entra com a conta Google em Configurações → Conta e os dados
-ficam guardados na nuvem, iguais no celular e no computador. O app continua funcionando sem
-internet e envia as mudanças quando a conexão volta. Sem configurar, tudo fica só no aparelho.
+Com o Firebase configurado em `firebase-config.js`, o app abre numa tela de entrada e só pode ser
+usado depois do login com Google. Os dados ficam guardados na nuvem, iguais no celular e no
+computador.
+
+- Quem já entrou num aparelho vai direto para o app, inclusive sem internet; as mudanças sobem
+  quando a conexão volta.
+- A tela de entrada só volta se ela sair da conta (Configurações → Conta).
+- Com `window.FIREBASE_CONFIG = null`, não há login e tudo fica só no aparelho.
 
 1. Crie um projeto em https://console.firebase.google.com (o Google Analytics pode ficar desligado).
 2. **Authentication** → Começar → Método de login → ative **Google**.

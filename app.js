@@ -87,7 +87,7 @@ const REMIND_OPTIONS = [
 ];
 
 function defaultSettings() {
-  return { name: 'Maria Eduarda', theme: 'auto', studyReminder: '20:00', examReminders: true, notifBannerHidden: false, cloudBannerHidden: false };
+  return { name: 'Maria Eduarda', theme: 'auto', studyReminder: '20:00', examReminders: true, notifBannerHidden: false };
 }
 
 function emptyState() {
@@ -435,7 +435,7 @@ function viewHoje() {
   return `
     <p class="eyebrow">${fmtLongDate(t)}</p>
     <p class="greeting">${esc(greeting())}</p>
-    ${cloudBannerHtml() || notifBannerHtml()}
+    ${notifBannerHtml()}
     ${catFilterHtml()}
     ${late.length ? section('Atrasadas', list(late.map((x) => taskHtml(x, x.date, { showDate: true })))) : ''}
     ${section('Tarefas',
@@ -928,7 +928,10 @@ function settingsModal() {
       return false;
     }
     if (action === 'cloud-signout') {
-      if (confirm('Sair da conta? Os dados continuam neste aparelho.')) window.cloud.signOut();
+      if (confirm('Sair da conta? Para usar o app de novo, será preciso entrar.')) {
+        modal.close();
+        window.cloud.signOut();
+      }
       return false;
     }
     if (action === 'notif-on') {
@@ -1098,20 +1101,38 @@ async function enableNotifications() {
   render();
 }
 
-// Convite para entrar na conta, enquanto ela não entrou.
-function cloudBannerHtml() {
-  const c = window.cloud;
-  if (!c?.configured || c.user || c.state !== 'signed-out' || db.settings.cloudBannerHidden) return '';
-  return `
-    <div class="notice">
-      ${icon('upload')}
-      <div class="row-main">
-        <div class="row-title">Salvar na nuvem</div>
-        <div class="row-meta">Entre para não perder nada e usar no computador também.</div>
-      </div>
-      <button class="btn primary" data-action="cloud-signin">Entrar</button>
-      <button class="icon-btn" data-action="hide-cloud-banner" aria-label="Dispensar">${icon('x')}</button>
-    </div>`;
+// ---------- Tela de entrada ----------
+
+// Com o Firebase configurado, o app só abre depois do login com Google.
+// Quem já entrou neste aparelho vai direto para o app enquanto o Firebase carrega,
+// e continua usando sem internet; a tela só volta se ela sair da conta.
+const SIGNED_IN_KEY = 'minhas-tarefas:signed-in';
+
+function updateGate() {
+  const gate = document.getElementById('gate');
+  const c = window.cloud || { state: 'off' };
+  const wasSignedIn = localStorage.getItem(SIGNED_IN_KEY) === '1';
+  const open = Boolean(window.FIREBASE_CONFIG) && !c.user && (!wasSignedIn || c.state === 'signed-out');
+  gate.hidden = !open;
+  document.body.classList.toggle('locked', open);
+  if (!open) return;
+
+  const button = document.getElementById('gate-signin');
+  const status = document.getElementById('gate-status');
+  if (c.state === 'signed-out') {
+    button.hidden = false;
+    button.textContent = 'Entrar com Google';
+    button.dataset.mode = 'signin';
+    status.textContent = '';
+  } else if (c.state === 'error' || c.state === 'offline') {
+    button.hidden = false;
+    button.textContent = 'Tentar de novo';
+    button.dataset.mode = 'retry';
+    status.textContent = 'Não foi possível conectar. Verifique a internet.';
+  } else {
+    button.hidden = true;
+    status.textContent = 'Carregando…';
+  }
 }
 
 function notifBannerHtml() {
@@ -1289,10 +1310,6 @@ document.addEventListener('click', (e) => {
       break;
     case 'enable-notif': enableNotifications(); return;
     case 'hide-notif-banner': db.settings.notifBannerHidden = true; save(); break;
-    case 'hide-cloud-banner': db.settings.cloudBannerHidden = true; save(); break;
-    case 'cloud-signin':
-      window.cloud.signIn().catch(() => toast('Não foi possível entrar agora.'));
-      return;
     default: return;
   }
   render();
@@ -1311,7 +1328,12 @@ document.getElementById('btn-theme').addEventListener('click', () => setTheme(is
 window.addEventListener('cloud-status', () => {
   const box = document.getElementById('cloud-box');
   if (box) box.innerHTML = cloudBoxHtml();
-  if (ui.tab === 'hoje' && !modal.open) render();
+  updateGate();
+});
+
+document.getElementById('gate-signin').addEventListener('click', (e) => {
+  if (e.currentTarget.dataset.mode === 'retry') return location.reload();
+  window.cloud?.signIn().catch(() => toast('Não foi possível entrar agora.'));
 });
 
 // Atualiza a tela ao virar o dia ou ao voltar para o app.
@@ -1328,6 +1350,7 @@ document.querySelectorAll('[data-icon]').forEach((el) => {
 });
 seedSemester();
 applyTheme();
+updateGate();
 render();
 checkReminders();
 

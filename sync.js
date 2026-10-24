@@ -8,6 +8,7 @@
 const FIREBASE_VERSION = '10.12.2';
 const PENDING_KEY = 'minhas-tarefas:pending'; // há mudanças locais ainda não enviadas
 const SYNCED_KEY = 'minhas-tarefas:synced-uid'; // conta que já sincronizou neste aparelho
+const SIGNED_IN_KEY = 'minhas-tarefas:signed-in'; // libera o app enquanto o Firebase carrega (app.js)
 
 const cloud = (window.cloud = {
   configured: Boolean(window.FIREBASE_CONFIG),
@@ -118,9 +119,11 @@ async function start() {
     ref = null;
     cloud.user = user;
     if (!user) {
+      localStorage.removeItem(SIGNED_IN_KEY);
       setState('signed-out');
       return;
     }
+    localStorage.setItem(SIGNED_IN_KEY, '1');
 
     ref = fs.doc(store, 'users', user.uid);
     setState('saving');
