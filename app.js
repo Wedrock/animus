@@ -94,17 +94,21 @@ function emptyState() {
   return { tasks: [], subjects: [], topics: [], exams: [], settings: defaultSettings() };
 }
 
+// Completa campos que versões antigas não tinham.
+function normalize(raw) {
+  const data = { ...emptyState(), ...raw };
+  data.settings = { ...defaultSettings(), ...raw.settings };
+  for (const subj of data.subjects) {
+    const i = OLD_SUBJECT_COLORS.indexOf(subj.color);
+    if (i >= 0) subj.color = SUBJECT_COLORS[i];
+  }
+  return data;
+}
+
 function load() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return emptyState();
-    const data = { ...emptyState(), ...JSON.parse(raw) };
-    data.settings = { ...defaultSettings(), ...data.settings };
-    for (const subj of data.subjects) {
-      const i = OLD_SUBJECT_COLORS.indexOf(subj.color);
-      if (i >= 0) subj.color = SUBJECT_COLORS[i];
-    }
-    return data;
+    return raw ? normalize(JSON.parse(raw)) : emptyState();
   } catch {
     return emptyState();
   }
@@ -112,12 +116,27 @@ function load() {
 
 let db = load();
 
-function save() {
+function writeLocal() {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
   } catch {
     toast('Não foi possível salvar neste navegador.');
   }
+}
+
+// Toda mudança feita aqui avisa o sync.js, que envia para a nuvem.
+function save() {
+  db.updatedAt = Date.now();
+  writeLocal();
+  window.dispatchEvent(new Event('db-saved'));
+}
+
+// Dados que chegaram da nuvem (outro aparelho): substitui sem reenviar.
+function replaceDb(data) {
+  db = normalize(data);
+  writeLocal();
+  applyTheme();
+  if (!modal.open) render();
 }
 
 const ui = {
@@ -840,6 +859,25 @@ function notifStatus() {
   }[Notification.permission];
 }
 
+function cloudBoxHtml() {
+  const c = window.cloud;
+  if (!c.user) {
+    return `
+      <p class="hint">Entre com a conta Google para guardar tudo na nuvem e usar o app no celular e no computador.</p>
+      <button class="btn" value="cloud-signin" formnovalidate>Entrar com Google</button>`;
+  }
+  const time = c.lastSync ? c.lastSync.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
+  const status = {
+    saving: 'Sincronizando…',
+    synced: time ? `Sincronizado às ${time}.` : 'Sincronizado.',
+    offline: 'Sem internet. Sincroniza quando a conexão voltar.',
+    error: 'Não foi possível sincronizar agora.',
+  }[c.state] || '';
+  return `
+    <p class="hint">Conectada como ${esc(c.user.email)}. ${status}</p>
+    <button class="btn" value="cloud-signout" formnovalidate>Sair da conta</button>`;
+}
+
 function settingsModal() {
   const st = db.settings;
   const canAsk = 'Notification' in window && Notification.permission === 'default';
@@ -849,6 +887,8 @@ function settingsModal() {
       <input type="text" name="name" maxlength="40" value="${esc(st.name)}" placeholder="Como quer ser chamada?">
     </label>
     <div class="field"><span class="label">Aparência</span>${radios('theme', THEMES, st.theme)}</div>
+
+    ${window.cloud?.configured ? `<h3>Conta</h3><div id="cloud-box" class="field">${cloudBoxHtml()}</div>` : ''}
 
     <h3>Lembretes</h3>
     <p class="hint">${notifStatus()}</p>
@@ -883,6 +923,14 @@ function settingsModal() {
       <button class="btn" value="cancel" formnovalidate>Fechar</button>
     </div>`,
   (action, f) => {
+    if (action === 'cloud-signin') {
+      window.cloud.signIn().catch(() => toast('Não foi possível entrar agora.'));
+      return false;
+    }
+    if (action === 'cloud-signout') {
+      if (confirm('Sair da conta? Os dados continuam neste aparelho.')) window.cloud.signOut();
+      return false;
+    }
     if (action === 'notif-on') {
       enableNotifications().then(settingsModal);
       return false;
@@ -904,7 +952,8 @@ function settingsModal() {
       a.click();
       URL.revokeObjectURL(a.href);
     } else if (action === 'wipe') {
-      if (!confirm('Isso apaga tarefas, matérias e conteúdos deste aparelho. Continuar?')) return false;
+      const where = window.cloud?.user ? 'deste aparelho e da sua conta' : 'deste aparelho';
+      if (!confirm(`Isso apaga tarefas, matérias e conteúdos ${where}. Continuar?`)) return false;
       db = emptyState();
       save();
       applyTheme();
@@ -920,8 +969,7 @@ function settingsModal() {
       const data = JSON.parse(await file.text());
       if (!Array.isArray(data.tasks) || !Array.isArray(data.subjects)) throw new Error();
       if (!confirm('Substituir os dados atuais pelos do backup?')) return;
-      db = { ...emptyState(), ...data };
-      db.settings = { ...defaultSettings(), ...data.settings };
+      db = normalize(data);
       save();
       applyTheme();
       modal.close();
@@ -1238,6 +1286,12 @@ document.getElementById('fab').addEventListener('click', () => {
 
 document.getElementById('btn-settings').addEventListener('click', settingsModal);
 document.getElementById('btn-theme').addEventListener('click', () => setTheme(isDark() ? 'light' : 'dark'));
+
+// Atualiza o quadro da conta em Configurações, se estiver aberto.
+window.addEventListener('cloud-status', () => {
+  const box = document.getElementById('cloud-box');
+  if (box) box.innerHTML = cloudBoxHtml();
+});
 
 // Atualiza a tela ao virar o dia ou ao voltar para o app.
 document.addEventListener('visibilitychange', () => {

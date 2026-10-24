@@ -50,6 +50,23 @@ Cada conteúdo recebe uma pontuação:
 
 Conteúdos estudados hoje vão para o fim da lista.
 
+## Sincronização com Firebase (opcional)
+
+Com o Firebase configurado, ela entra com a conta Google em Configurações → Conta e os dados
+ficam guardados na nuvem, iguais no celular e no computador. O app continua funcionando sem
+internet e envia as mudanças quando a conexão volta. Sem configurar, tudo fica só no aparelho.
+
+1. Crie um projeto em https://console.firebase.google.com (o Google Analytics pode ficar desligado).
+2. **Authentication** → Começar → Método de login → ative **Google**.
+3. **Authentication** → Configurações → Domínios autorizados → adicione `wedrock.github.io`.
+4. **Firestore Database** → Criar banco de dados → modo de produção → região `southamerica-east1` (São Paulo).
+5. Na aba **Regras** do Firestore, cole o conteúdo de `firestore.rules` e publique.
+6. Configurações do projeto → Seus apps → ícone `</>` (Web) → registre o app e copie o objeto
+   `firebaseConfig` para `firebase-config.js`.
+
+Os dados de cada conta ficam em `users/{uid}`. Em caso de edição simultânea em dois aparelhos
+sem internet, vale a última versão salva.
+
 ## Rodar localmente
 
 ```sh

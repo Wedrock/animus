@@ -1,5 +1,5 @@
-const CACHE = 'animus-v8';
-const FILES = ['./', 'index.html', 'style.css', 'app.js', 'manifest.json', 'icon.svg'];
+const CACHE = 'animus-v9';
+const FILES = ['./', 'index.html', 'style.css', 'app.js', 'sync.js', 'firebase-config.js', 'manifest.json', 'icon.svg'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)));
@@ -14,8 +14,12 @@ self.addEventListener('activate', (e) => {
 });
 
 // Rede primeiro (para pegar atualizações), cache se estiver offline.
+// Só cuida dos arquivos do app e das bibliotecas do Firebase; a conexão com o
+// banco de dados (firestore.googleapis.com) passa direto.
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
+  const { origin, host } = new URL(e.request.url);
+  if (origin !== self.location.origin && host !== 'www.gstatic.com') return;
   e.respondWith(
     fetch(e.request)
       .then((res) => {
