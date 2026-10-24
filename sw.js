@@ -1,4 +1,4 @@
-const CACHE = 'animus-v9';
+const CACHE = 'animus-v10';
 const FILES = ['./', 'index.html', 'style.css', 'app.js', 'sync.js', 'firebase-config.js', 'manifest.json', 'icon.svg'];
 
 self.addEventListener('install', (e) => {
