@@ -7,21 +7,20 @@
 const desktopQuery = window.matchMedia('(min-width: 1024px)');
 const isDesktop = () => desktopQuery.matches;
 
-function pageHead({ eyebrow, title, sub = '', actions = '' }) {
+function pageHead({ eyebrow, title, actions = '' }) {
   return `
     <header class="page-head">
       <div class="page-head-text">
         <p class="page-eyebrow">${eyebrow}</p>
         <h1>${title}</h1>
-        ${sub ? `<p class="page-sub">${sub}</p>` : ''}
       </div>
       ${actions ? `<div class="page-actions">${actions}</div>` : ''}
     </header>`;
 }
 
-const panel = (title, body, side = '', ic = '') => `
+const panel = (title, body, side = '') => `
   <section class="panel">
-    <div class="panel-head"><h2>${ic ? icon(ic) : ''}${title}</h2>${side}</div>
+    <div class="panel-head"><h2>${title}</h2>${side}</div>
     ${body}
   </section>`;
 
@@ -39,12 +38,6 @@ function deskHoje() {
   const rest = focus ? tasks.filter((x) => x !== focus.task) : tasks;
   const late = isToday ? overdueTasks(ui.catFilter) : [];
   const dayExams = db.exams.filter((e) => e.date === sel);
-
-  const allToday = tasksOn(sel);
-  const pending = allToday.filter((x) => !isDone(x, sel)).length;
-  const sub = allToday.length
-    ? `${plural(allToday.length, 'tarefa', 'tarefas')} ${isToday ? 'hoje' : 'neste dia'}, ${pending ? `${pending} por fazer` : 'todas feitas'}.`
-    : `Nada marcado ${isToday ? 'para hoje' : 'para este dia'}.`;
 
   const study = rankedTopics().filter((x) => !x.studiedToday).slice(0, 3);
   const upcoming = db.exams
@@ -67,13 +60,13 @@ function deskHoje() {
   const side = `
     ${panel('Para estudar hoje',
       study.length ? list(study.map(rankHtml)) : `<p class="empty">${db.topics.length ? 'Tudo estudado hoje.' : 'Cadastre os conteúdos em Matérias.'}</p>`,
-      db.topics.length ? '<button class="btn text" data-action="go" data-tab="estudar">Ver fila</button>' : '', 'bookmark')}
+      db.topics.length ? '<button class="btn text" data-action="go" data-tab="estudar">Ver fila</button>' : '')}
     ${panel('Provas e entregas',
       upcoming.length ? list(upcoming.map((e) => deskExamRow(e))) : '<p class="empty">Nenhuma prova nos próximos 30 dias.</p>',
-      '<span class="count">Próximos 30 dias</span>', 'flag')}`;
+      '<span class="count">Próximos 30 dias</span>')}`;
 
   return `
-    ${pageHead({ eyebrow: `Semestre ${SEMESTER.id} · ${fmtLongDate(sel)}`, title: `${esc(greeting())}.`, sub })}
+    ${pageHead({ eyebrow: `Semestre ${SEMESTER.id} · ${fmtLongDate(sel)}`, title: `${esc(greeting())}.` })}
     <div class="desk-grid">
       <div class="desk-main">${main}</div>
       <aside class="desk-side">${side}</aside>
@@ -95,8 +88,6 @@ function deskExamRow(exam) {
 }
 
 // ---------- Semana ----------
-
-const WEEKDAY_SHORT_UP = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'];
 
 function deskSemana() {
   const t = today();
@@ -129,7 +120,7 @@ function deskSemana() {
     return `
       <div class="wcol ${isToday ? 'today' : ''}">
         <div class="wcol-head">
-          <span class="wd">${WEEKDAY_SHORT_UP[d.getDay()]}${isToday ? '<em>Hoje</em>' : ''}</span>
+          <span class="wd">${WEEKDAYS_SHORT[d.getDay()]}${isToday ? '<em>Hoje</em>' : ''}</span>
           <b>${d.getDate()}</b>
           ${badge}
         </div>
@@ -183,10 +174,9 @@ function deskMaterias() {
   const upcoming = db.exams.filter((e) => e.date >= t);
   const actions = `<button class="btn primary" data-action="new-subject">${icon('plus', 'sm')}Nova matéria</button>`;
   const head = pageHead({
-    eyebrow: `Semestre ${SEMESTER.id}`,
+    eyebrow: [`Semestre ${SEMESTER.id}`, plural(db.subjects.length, 'matéria', 'matérias'),
+      plural(topicsAll.length, 'conteúdo', 'conteúdos'), plural(upcoming.length, 'prova marcada', 'provas marcadas')].join(' · '),
     title: 'Matérias',
-    sub: [plural(db.subjects.length, 'matéria', 'matérias'), plural(topicsAll.length, 'conteúdo', 'conteúdos'),
-      plural(upcoming.length, 'prova marcada', 'provas marcadas')].join(' · '),
     actions,
   });
   if (!db.subjects.length) return head + viewMaterias();
@@ -233,7 +223,7 @@ function deskSubjectDetail(s) {
     <div class="row">
       ${icon('book')}
       <div class="row-main" data-action="edit-topic" data-id="${x.id}">
-        <div class="row-title serif">${esc(x.title)}</div>
+        <div class="row-title big">${esc(x.title)}</div>
         <div class="row-meta">
           <span class="${x.lastStudied ? '' : 'danger'}">${x.lastStudied ? `Revisado ${relDays(-daysBetween(x.lastStudied, t))}` : 'Nunca estudado'}</span>
           ${x.notes ? '<span>Com anotações</span>' : ''}
@@ -248,7 +238,6 @@ function deskSubjectDetail(s) {
       <h2 class="subj-title">${esc(s.name)}</h2>
       ${next ? `
         <div class="exam-box" data-action="edit-exam" data-id="${next.id}">
-          ${icon('flag')}
           <div><small>Próxima avaliação</small><b>${esc(next.title || 'Prova')}</b></div>
           <div class="exam-box-date"><b>${fmtDate(next.date, { day: 'numeric', month: 'long' })}</b>
             <small>${relDays(daysBetween(t, next.date))}</small></div>
@@ -266,7 +255,7 @@ function deskSubjectDetail(s) {
         ${list(exams.map((e) => examHtml(e, { showSubject: false })))}` : ''}
       ${suggested.length ? `
         <div class="suggest-box">
-          <div class="section-head"><h2>${icon('bookmark', 'sm')} Sugestões de conteúdos</h2><span class="count">Confira com a ementa</span></div>
+          <div class="section-head"><h2>Sugestões de conteúdos</h2><span class="count">Confira com a ementa</span></div>
           <div class="suggest-grid">${suggested.map((n) => `
             <button class="suggest" data-action="quick-topic" data-subject="${s.id}" data-name="${esc(n)}">
               <span>${esc(n)}</span>${icon('plus', 'sm')}</button>`).join('')}
@@ -294,9 +283,8 @@ function deskOtherSubjects() {
 
 function deskEstudar() {
   const head = pageHead({
-    eyebrow: 'Fila de estudo',
+    eyebrow: 'Ordem pela dificuldade, pelo tempo sem revisar e pelas provas próximas',
     title: 'O que estudar agora',
-    sub: 'A ordem soma a dificuldade, o tempo sem revisar e a proximidade das provas.',
   });
   if (!db.topics.length) return head + viewEstudar();
 
@@ -310,7 +298,7 @@ function deskEstudar() {
     ? items.map((item, i) => deskStudyItem(item, i === 0 && !item.studiedToday)).join('')
     : '<p class="empty">Nenhum conteúdo nessa matéria.</p>';
 
-  const today_ = `
+  const progressoHoje = `
     <p class="side-note">${studiedToday.length ? `${plural(studiedToday.length, 'conteúdo estudado', 'conteúdos estudados')} hoje.` : 'Nenhum conteúdo estudado hoje ainda.'}</p>
     <ul class="checklist">
       ${studiedToday.map((x) => `<li class="done">${icon('check', 'sm')}<span>${esc(x.title)}</span></li>`).join('')}
@@ -318,13 +306,13 @@ function deskEstudar() {
     </ul>`;
 
   const side = `
-    ${panel('Hoje', today_, `<span class="count">${studiedToday.length} estudado${studiedToday.length === 1 ? '' : 's'}</span>`, 'check')}
+    ${panel('Hoje', progressoHoje, `<span class="count">${studiedToday.length} estudado${studiedToday.length === 1 ? '' : 's'}</span>`)}
     ${panel('Hora de estudar',
       `<p class="side-note">${st.studyReminder ? `Lembrete diário às <b>${esc(st.studyReminder)}</b>, com os conteúdos do topo da fila.` : 'Lembrete diário desligado.'}</p>
-       <button class="btn" data-action="open-settings">Alterar</button>`, '', 'bell')}
+       <button class="btn" data-action="open-settings">Alterar</button>`)}
     ${panel('Agenda do celular',
       `<p class="side-note">Coloque a rotina, as provas e a hora de estudar na agenda, com alarme mesmo com o app fechado.</p>
-       <button class="btn" data-action="export-ics">${icon('calendarPlus', 'sm')}Exportar (.ics)</button>`, '', 'calendar')}`;
+       <button class="btn" data-action="export-ics">${icon('calendarPlus', 'sm')}Exportar (.ics)</button>`)}`;
 
   return `
     ${head}

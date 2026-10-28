@@ -429,7 +429,6 @@ function examBannerHtml() {
   const top = rankedTopics(subj.id).find((x) => !x.studiedToday);
   return `
     <button class="exam-banner" data-action="exam-study" data-id="${subj.id}">
-      ${icon('flag')}
       <span><b>${esc(exam.title || 'Prova')} de ${esc(subj.name)} ${when}</b>
         <small>${top ? `Revise primeiro: ${esc(top.topic.title)}` : 'Cadastre os conteúdos dessa matéria'}</small></span>
       ${icon('arrow')}
@@ -461,12 +460,12 @@ function evHtml(task, date, { late = false } = {}) {
 
 const timeline = (items, opts) => `<div class="timeline">${items.map(([task, date]) => evHtml(task, date, opts)).join('')}</div>`;
 
-function examHtml(exam, { showSubject = true } = {}) {
+function examHtml(exam, { showSubject = true, cls: rowCls = '' } = {}) {
   const s = byId(db.subjects, exam.subjectId);
   const until = daysBetween(today(), exam.date);
   const cls = until < 0 ? '' : until <= 7 ? 'danger' : 'warn';
   return `
-    <div class="row">
+    <div class="row ${rowCls}">
       ${icon('flag')}
       <div class="row-main" data-action="edit-exam" data-id="${exam.id}">
         <div class="row-title">${esc(exam.title || 'Prova')}${showSubject && s ? ` · ${esc(s.name)}` : ''}</div>
@@ -602,7 +601,7 @@ function viewMaterias() {
       ${suggestionsHtml()}`;
   }
   const t = today();
-  return '<div style="height:6px"></div>' + db.subjects.map((s) => {
+  return db.subjects.map((s) => {
     const topics = db.topics.filter((x) => x.subjectId === s.id)
       .sort((a, b) => b.level - a.level || a.title.localeCompare(b.title));
     const hard = topics.filter((x) => x.level === 3).length;
@@ -634,13 +633,13 @@ function viewMaterias() {
               <span>${x.lastStudied ? `Estudado ${relDays(-daysBetween(x.lastStudied, t))}` : 'Nunca estudado'}</span></div>
           </div>
         </div>`));
-      rows.push(...exams.map((e) => examHtml(e, { showSubject: false }).replace('class="row"', 'class="row topic"')));
+      rows.push(...exams.map((e) => examHtml(e, { showSubject: false, cls: 'topic' })));
       const suggested = topicSuggestions(s);
       if (suggested.length && ui.openSuggestions.has(s.id)) {
         rows.push(`
           <div class="row topic suggestions">
             <div class="row-main">
-              <div class="row-meta" style="margin:0 0 8px">Toque para adicionar. Confira com a ementa da faculdade.</div>
+              <p class="hint">Toque para adicionar. Confira com a ementa da faculdade.</p>
               <div class="tags">${suggested.map((n) =>
                 `<button class="tag" data-action="quick-topic" data-subject="${s.id}" data-name="${esc(n)}">${icon('plus', 'sm')}${esc(n)}</button>`).join('')}</div>
             </div>
@@ -677,7 +676,6 @@ function viewEstudar() {
   const items = rankedTopics(ui.studySubject);
   return `
     ${filterHtml([['todas', 'Todas'], ...db.subjects.map((s) => [s.id, shortName(s.name)])], ui.studySubject, 'study-filter')}
-    <div style="height:12px"></div>
     ${items.length ? list(items.map(rankHtml)) : '<p class="empty">Nenhum conteúdo nessa matéria.</p>'}`;
 }
 
@@ -1022,7 +1020,9 @@ function settingsModal() {
     </details>
 
     <h3>Backup</h3>
-    <p class="hint">Os dados ficam só neste aparelho.</p>
+    <p class="hint">${window.cloud?.configured
+      ? 'Uma cópia dos dados em arquivo, para guardar ou levar para outro lugar.'
+      : 'Os dados ficam só neste aparelho.'}</p>
     <div class="btn-row">
       <button class="btn" value="export" formnovalidate>${icon('download', 'sm')}Baixar</button>
       <label class="btn">${icon('upload', 'sm')}Restaurar<input type="file" accept="application/json,.json" id="import-file" hidden></label>
@@ -1211,6 +1211,22 @@ async function enableNotifications() {
   render();
 }
 
+function notifBannerHtml() {
+  if (db.settings.notifBannerHidden || notifGranted()) return '';
+  const supported = 'Notification' in window;
+  if (supported && Notification.permission === 'denied') return '';
+  return `
+    <div class="notice">
+      ${icon('bell')}
+      <div class="row-main">
+        <div class="row-title">Lembretes</div>
+        ${supported ? '' : `<div class="row-meta">${esc(notifStatus())}</div>`}
+      </div>
+      ${supported ? '<button class="btn primary" data-action="enable-notif">Ativar</button>' : ''}
+      <button class="icon-btn" data-action="hide-notif-banner" aria-label="Dispensar">${icon('x')}</button>
+    </div>`;
+}
+
 // ---------- Tela de entrada ----------
 
 // Com o Firebase configurado, o app só abre depois do login com Google.
@@ -1243,22 +1259,6 @@ function updateGate() {
     button.hidden = true;
     status.textContent = 'Carregando…';
   }
-}
-
-function notifBannerHtml() {
-  if (db.settings.notifBannerHidden || notifGranted()) return '';
-  const supported = 'Notification' in window;
-  if (supported && Notification.permission === 'denied') return '';
-  return `
-    <div class="notice">
-      ${icon('bell')}
-      <div class="row-main">
-        <div class="row-title">Lembretes</div>
-        ${supported ? '' : `<div class="row-meta">${esc(notifStatus())}</div>`}
-      </div>
-      ${supported ? '<button class="btn primary" data-action="enable-notif">Ativar</button>' : ''}
-      <button class="icon-btn" data-action="hide-notif-banner" aria-label="Dispensar">${icon('x')}</button>
-    </div>`;
 }
 
 // ---------- Agenda (.ics e Google Agenda) ----------
